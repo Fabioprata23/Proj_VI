@@ -119,7 +119,7 @@ body {
   grid-template-rows: minmax(22rem, auto) minmax(20rem, auto);
   grid-template-areas:
     "v1 v1 v2"
-    "v3 v4 v2";
+    "v3 v3 v2";
   gap: var(--gap);
 }
 
