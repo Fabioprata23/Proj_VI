@@ -111,7 +111,7 @@ body {
 /*
   Layout, like the sketch:
   V1 wide top-left, V2 tall on the right,
-  V3 and V4 side by side below V1.
+  V3 wide top-left below V1.
 */
 .grid {
   display: grid;
@@ -126,7 +126,6 @@ body {
 .v1 { grid-area: v1; }
 .v2 { grid-area: v2; }
 .v3 { grid-area: v3; }
-.v4 { grid-area: v4; }
 
 .panel {
   display: flex;
@@ -183,7 +182,6 @@ body {
       "v1"
       "v2"
       "v3"
-      "v4";
   }
 
   .panel-body.two-col {
