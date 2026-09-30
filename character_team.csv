@@ -1,0 +1,427 @@
+character_id,team
+M1346,Acolytes
+M1530,Acolytes
+M15725,Acolytes
+M2278,Acolytes
+M7584,Acolytes
+M1122,Alpha Flight
+M2238,Alpha Flight
+M2383,Alpha Flight
+M2577,Alpha Flight
+M64786,Alpha Flight
+M1080,Avengers
+M1095,Avengers
+M1187,Avengers
+M1190,Avengers
+M1256,Avengers
+M1285,Avengers
+M1380,Avengers
+M1389,Avengers
+M1396,Avengers
+M1399,Avengers
+M15282,Avengers
+M1558,Avengers
+M15725,Avengers
+M1592,Avengers
+M1613,Avengers
+M1628,Avengers
+M1633,Avengers
+M1671,Avengers
+M1678,Avengers
+M1740,Avengers
+M1802,Avengers
+M1811,Avengers
+M1818,Avengers
+M1833,Avengers
+M1863,Avengers
+M1866,Avengers
+M1868,Avengers
+M1876,Avengers
+M1896,Avengers
+M1902,Avengers
+M1976,Avengers
+M2009,Avengers
+M2173,Avengers
+M2183,Avengers
+M2185,Avengers
+M2312,Avengers
+M2382,Avengers
+M2458,Avengers
+M2470,Avengers
+M2512,Avengers
+M2590,Avengers
+M2614,Avengers
+M2626,Avengers
+M37690,Avengers
+M55534,Avengers
+M5686,Avengers
+M6194,Avengers
+M6517,Avengers
+M6545,Avengers
+M6635,Avengers
+M7139,Avengers
+D1422,Batman Family
+D1456,Batman Family
+D1460,Batman Family
+D1494,Batman Family
+D38764,Batman Family
+D8883,Batman Family
+M1215,Brotherhood of Evil Mutants
+M1592,Brotherhood of Evil Mutants
+M1901,Brotherhood of Evil Mutants
+M2159,Brotherhood of Evil Mutants
+M2317,Brotherhood of Evil Mutants
+M2374,Brotherhood of Evil Mutants
+M2482,Brotherhood of Evil Mutants
+M2512,Brotherhood of Evil Mutants
+M55878,Brotherhood of Evil Mutants
+M65255,Brotherhood of Evil Mutants
+M1080,Defenders
+M1187,Defenders
+M1389,Defenders
+M1396,Defenders
+M1399,Defenders
+M15725,Defenders
+M1613,Defenders
+M1802,Defenders
+M1811,Defenders
+M1818,Defenders
+M1833,Defenders
+M1866,Defenders
+M1876,Defenders
+M2183,Defenders
+M2239,Defenders
+M2240,Defenders
+M2278,Defenders
+M2456,Defenders
+M2512,Defenders
+M2556,Defenders
+M2590,Defenders
+M3333,Defenders
+M33447,Defenders
+M35350,Defenders
+M4565,Defenders
+M55534,Defenders
+M6194,Defenders
+M64786,Defenders
+M7139,Defenders
+M1187,Excalibur
+M1268,Excalibur
+M1285,Excalibur
+M1346,Excalibur
+M1404,Excalibur
+M1901,Excalibur
+M2007,Excalibur
+M2159,Excalibur
+M2223,Excalibur
+M2376,Excalibur
+M2527,Excalibur
+M1080,Fantastic Four
+M1190,Fantastic Four
+M1380,Fantastic Four
+M1448,Fantastic Four
+M1572,Fantastic Four
+M1678,Fantastic Four
+M1833,Fantastic Four
+M1837,Fantastic Four
+M1863,Fantastic Four
+M2166,Fantastic Four
+M2204,Fantastic Four
+M2240,Fantastic Four
+M2614,Fantastic Four
+M37690,Fantastic Four
+M64786,Fantastic Four
+M1131,Generation X
+M1315,Generation X
+M1840,Generation X
+M1961,Generation X
+M2637,Generation X
+M65255,Generation X
+M68416,Generation X
+M1558,Guardians of the Galaxy
+M1632,Guardians of the Galaxy
+M1684,Guardians of the Galaxy
+M17514,Guardians of the Galaxy
+M2359,Guardians of the Galaxy
+M31525,Guardians of the Galaxy
+M33447,Guardians of the Galaxy
+M1276,Hellfire Club
+M1285,Hellfire Club
+M1740,Hellfire Club
+M1868,Hellfire Club
+M2376,Hellfire Club
+M2614,Hellfire Club
+M2626,Hellfire Club
+M1080,Heroes for Hire
+M1180,Heroes for Hire
+M1187,Heroes for Hire
+M1505,Heroes for Hire
+M15282,Heroes for Hire
+M1613,Heroes for Hire
+M1818,Heroes for Hire
+M1866,Heroes for Hire
+M37690,Heroes for Hire
+D1399,Injustice League / Secret Society
+D1455,Injustice League / Secret Society
+D1460,Injustice League / Secret Society
+D1463,Injustice League / Secret Society
+D1464,Injustice League / Secret Society
+D1514,Injustice League / Secret Society
+D1517,Injustice League / Secret Society
+D1519,Injustice League / Secret Society
+D1555,Injustice League / Secret Society
+D1675,Injustice League / Secret Society
+D16836,Injustice League / Secret Society
+D3610,Injustice League / Secret Society
+D37701,Injustice League / Secret Society
+D4721,Injustice League / Secret Society
+D1422,Justice League
+D1448,Justice League
+D1455,Justice League
+D1458,Justice League
+D1460,Justice League
+D1479,Justice League
+D1484,Justice League
+D1485,Justice League
+D1486,Justice League
+D1494,Justice League
+D1510,Justice League
+D1519,Justice League
+D1549,Justice League
+D1554,Justice League
+D1556,Justice League
+D1557,Justice League
+D1560,Justice League
+D1574,Justice League
+D1577,Justice League
+D1578,Justice League
+D1580,Justice League
+D1581,Justice League
+D1582,Justice League
+D1583,Justice League
+D1585,Justice League
+D1612,Justice League
+D1619,Justice League
+D1624,Justice League
+D1680,Justice League
+D1704,Justice League
+D1825,Justice League
+D1839,Justice League
+D1870,Justice League
+D1894,Justice League
+D23652,Justice League
+D2433,Justice League
+D2657,Justice League
+D2753,Justice League
+D3719,Justice League
+D4320,Justice League
+D4637,Justice League
+D51559,Justice League
+D70786,Justice League
+D1448,Justice Society
+D1459,Justice Society
+D1528,Justice Society
+D1558,Justice Society
+D1580,Justice Society
+D1583,Justice Society
+D1680,Justice Society
+D1696,Justice Society
+D2433,Justice Society
+D50010,Justice Society
+D71760,Justice Society
+D12672,Lantern Corps
+D1399,Lantern Corps
+D1422,Lantern Corps
+D1458,Lantern Corps
+D1479,Lantern Corps
+D1484,Lantern Corps
+D1486,Lantern Corps
+D1569,Lantern Corps
+D1583,Lantern Corps
+D1585,Lantern Corps
+D1680,Lantern Corps
+D1825,Lantern Corps
+D1826,Lantern Corps
+D1839,Lantern Corps
+D1850,Lantern Corps
+D1872,Lantern Corps
+D23652,Lantern Corps
+D2606,Lantern Corps
+D4320,Lantern Corps
+M1027,Masters of Evil
+M1187,Masters of Evil
+M1203,Masters of Evil
+M1453,Masters of Evil
+M1558,Masters of Evil
+M1576,Masters of Evil
+M1933,Masters of Evil
+M2009,Masters of Evil
+M2185,Masters of Evil
+M2474,Masters of Evil
+M2543,Masters of Evil
+M2582,Masters of Evil
+M4565,Masters of Evil
+M9851,Masters of Evil
+M1173,New Mutants
+M1276,New Mutants
+M19280,New Mutants
+M2007,New Mutants
+M2527,New Mutants
+M2626,New Mutants
+M1315,New Warriors
+M1336,New Warriors
+M1389,New Warriors
+M1399,New Warriors
+M1902,New Warriors
+M2204,New Warriors
+M2239,New Warriors
+M2660,New Warriors
+M32384,New Warriors
+M3933,New Warriors
+D1422,Outsiders
+D1456,Outsiders
+D1460,Outsiders
+D1484,Outsiders
+D1485,Outsiders
+D1556,Outsiders
+D1612,Outsiders
+D1870,Outsiders
+M1187,Queen's Vengeance
+M1190,Queen's Vengeance
+M1380,Queen's Vengeance
+M15725,Queen's Vengeance
+M1628,Queen's Vengeance
+M2512,Queen's Vengeance
+M1396,S.H.I.E.L.D.
+M1505,S.H.I.E.L.D.
+M1613,S.H.I.E.L.D.
+M1868,S.H.I.E.L.D.
+M2173,S.H.I.E.L.D.
+M2527,S.H.I.E.L.D.
+M6545,S.H.I.E.L.D.
+D1577,Sentinels of Magic
+D1839,Sentinels of Magic
+D1864,Sentinels of Magic
+D1872,Sentinels of Magic
+D2762,Sentinels of Magic
+M1503,Sinister Six
+M1740,Sinister Six
+M1943,Sinister Six
+M2382,Sinister Six
+M2421,Sinister Six
+M2543,Sinister Six
+M2633,Sinister Six
+M2715,Sinister Six
+M9851,Sinister Six
+D1463,Suicide Squad
+D1464,Suicide Squad
+D1517,Suicide Squad
+D2657,Suicide Squad
+D2753,Suicide Squad
+D2762,Suicide Squad
+D2773,Suicide Squad
+D11727,Teen Titans
+D14006,Teen Titans
+D1556,Teen Titans
+D1582,Teen Titans
+D1607,Teen Titans
+D1611,Teen Titans
+D1612,Teen Titans
+D1864,Teen Titans
+D1870,Teen Titans
+D1872,Teen Titans
+D22705,Teen Titans
+D2606,Teen Titans
+D2610,Teen Titans
+D38764,Teen Titans
+D4637,Teen Titans
+D1549,The Society
+D1624,The Society
+D1708,The Society
+D1946,The Society
+D70786,The Society
+M2278,The Twelve
+M2614,The Twelve
+M29481,The Twelve
+M35350,The Twelve
+M65255,The Twelve
+M1214,Thunderbolts
+M1256,Thunderbolts
+M1505,Thunderbolts
+M1740,Thunderbolts
+M1894,Thunderbolts
+M1901,Thunderbolts
+M2097,Thunderbolts
+M2185,Thunderbolts
+M2582,Thunderbolts
+M3333,Thunderbolts
+M4565,Thunderbolts
+M6545,Thunderbolts
+M1039,Weapon X
+M1122,Weapon X
+M1315,Weapon X
+M2170,Weapon X
+M2374,Weapon X
+M1276,X-Corporation
+M1460,X-Corporation
+M2626,X-Corporation
+M37689,X-Corporation
+M65255,X-Corporation
+M119507,X-Factor
+M1802,X-Factor
+M1961,X-Factor
+M2007,X-Factor
+M2278,X-Factor
+M55878,X-Factor
+M1276,X-Force
+M1460,X-Force
+M1622,X-Force
+M2558,X-Force
+M2614,X-Force
+M2626,X-Force
+M29481,X-Force
+M32498,X-Force
+M102464,X-Men
+M1122,X-Men
+M1131,X-Men
+M119275,X-Men
+M1276,X-Men
+M1315,X-Men
+M1320,X-Men
+M1346,X-Men
+M1404,X-Men
+M1460,X-Men
+M1565,X-Men
+M15725,X-Men
+M16501,X-Men
+M1680,X-Men
+M1802,X-Men
+M1840,X-Men
+M1900,X-Men
+M1901,X-Men
+M19280,X-Men
+M1966,X-Men
+M2072,X-Men
+M2159,X-Men
+M2223,X-Men
+M2238,X-Men
+M2278,X-Men
+M2307,X-Men
+M2376,X-Men
+M2466,X-Men
+M2527,X-Men
+M2614,X-Men
+M2626,X-Men
+M29481,X-Men
+M32498,X-Men
+M35350,X-Men
+M3765,X-Men
+M55878,X-Men
+M64786,X-Men
+M65255,X-Men
+M7584,X-Men
+D14006,Young Justice
+D1494,Young Justice
+D1564,Young Justice
+D1607,Young Justice
+D2433,Young Justice
