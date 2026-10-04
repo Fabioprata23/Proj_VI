@@ -259,3 +259,99 @@ body {
 }
 
 .view-nav a:hover { background: var(--panel); }
+
+/* ---- Charts ---- */
+
+/* A box that holds a chart: white frame, the SVG fills the box */
+.idiom.drawn {
+  display: block;
+  position: relative;
+  background: #fff;
+  border: 2px solid var(--line);
+}
+
+.idiom.drawn > svg {
+  position: absolute;
+  inset: 0;
+}
+
+.chart-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  fill: var(--ink);
+}
+
+.axis text {
+  font-family: "Archivo", system-ui, sans-serif;
+  font-size: 0.75rem;
+  fill: var(--muted);
+}
+
+.axis path,
+.axis line {
+  stroke: var(--muted);
+}
+
+/* Idiom 1: era bands */
+.era-band {
+  cursor: pointer;
+}
+
+.era-band rect {
+  fill: var(--panel);
+  opacity: 0.55;
+}
+
+.era-band:nth-child(even) rect {
+  opacity: 0.25;
+}
+
+.era-band:hover rect {
+  opacity: 0.9;
+}
+
+.era-band.selected rect {
+  fill: var(--ink);
+  opacity: 0.12;
+}
+
+.era-band text {
+  font-size: 0.75rem;
+  font-weight: 700;
+  fill: var(--ink);
+}
+
+.era-band.selected text {
+  text-decoration: underline;
+}
+
+/* Idiom 1: lines and hover */
+.share-line {
+  fill: none;
+  stroke-width: 2.5;
+  pointer-events: none;
+}
+
+.hover-line {
+  stroke: var(--ink);
+  stroke-dasharray: 3 3;
+  pointer-events: none;
+}
+
+/* Tooltip shared by all charts */
+.tooltip {
+  position: fixed;
+  z-index: 10;
+  max-width: 18rem;
+  padding: 0.5rem 0.7rem;
+  background: var(--ink);
+  color: #fff;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  pointer-events: none;
+  opacity: 0;
+}
+
+.tooltip.visible {
+  opacity: 1;
+}

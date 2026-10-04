@@ -1,86 +1,89 @@
 // V1 · Female debuts and top characters
 // Uses from script.js: registerView, applyFilters, showTooltip, hideTooltip (and d3).
 (function () {
+  // ---------- Constants ----------
   const ERAS = ["golden", "silver", "bronze", "modern"];
   const ERA_LABEL = { golden: "Golden", silver: "Silver", bronze: "Bronze", modern: "Modern" };
   const ERA_COLOR = { golden: "#dccdf2", silver: "#b99ee3", bronze: "#9a73d4", modern: "#6a3cb0" };
-  const SEX_COLOR = { male: "#1f2937", female: "#e08a00" };
-  const PUB_COLOR = { dc: "#2f6fdb", marvel: "#e0464e" };
+  const PUBS = ["marvel", "dc"];
+  const PUB_LABEL = { marvel: "Marvel", dc: "DC" };
+  const PUB_COLOR = { marvel: "#e0464e", dc: "#2f6fdb" };
+
+  const WINDOW = 2;     // rolling average over ±2 years = 5 years
+  const MIN_DEBUTS = 5; // no value when a publisher has fewer debuts in the 5-year window
 
   const lc = (v) => (v == null ? "" : String(v).toLowerCase());
   const shortName = (n) => String(n).replace(/\s*\(.*\)\s*$/, "");
+  const pct = d3.format(".0%");
+  const num = d3.format(",");
 
-  // ---------- Year table (opens above the charts when a year is clicked) ----------
-  let selectedYear = null;
-  let currentRows = [];
-
+  // ---------- Layout ----------
   const style = document.createElement("style");
   style.textContent = `
-    #year-table { margin: 0 0 1rem; padding: 0.75rem 1rem; background: #fff; border: 2px solid #1b1d22; }
-    #year-table .yt-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
-    #year-table .yt-title { margin: 0; font-size: 1rem; font-weight: 700; }
-    #year-table .yt-close { font: inherit; font-weight: 700; padding: 0.1rem 0.6rem; border: 2px solid #1b1d22; background: #fff; cursor: pointer; }
-    #year-table .yt-close:hover { background: #ececea; }
-    #year-table table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
-    #year-table th, #year-table td { text-align: left; padding: 0.25rem 0.6rem; border-bottom: 1px solid #d4d4d0; }
-    #year-table th { font-size: 0.8rem; color: #6b7280; }
-    #year-table td.num, #year-table th.num { text-align: right; }
-    /* On the dashboard the charts fill fixed-size boxes and shrink with the window */
-    .grid .idiom.drawn { position: relative; overflow: hidden; min-width: 0; min-height: 28rem; }
-    .grid .idiom.drawn > svg { position: absolute; top: 0; left: 0; }
-    #year-table .pub { display: inline-block; width: 0.8rem; height: 0.8rem; margin-right: 0.5rem; vertical-align: -1px; }
+    /* Charts fill fixed-size boxes on every page */
+    .idiom.drawn { position: relative; overflow: hidden; min-width: 0; height: 28rem; }
+    .idiom.drawn > svg { position: absolute; top: 0; left: 0; }
+    /* Dashboard: views not built yet (V2, V3) stay as empty rectangles */
+    .grid .idiom:not(.drawn) { color: transparent; user-select: none; }
   `;
   document.head.appendChild(style);
 
-  const panel = document.querySelector("#idiom-1").closest(".panel");
-  const tableBox = document.createElement("div");
-  tableBox.id = "year-table";
-  tableBox.hidden = true;
-  panel.insertBefore(tableBox, panel.querySelector(".panel-body"));
-
-  function renderYearTable() {
-    if (selectedYear == null) { tableBox.hidden = true; return; }
-    const top = currentRows
-      .filter((d) => d.first_year === selectedYear && d.appearances > 0)
-      .sort((a, b) => b.appearances - a.appearances)
-      .slice(0, 10);
-
-    const body = top.length
-      ? `<table>
-           <thead><tr><th>#</th><th>Character</th><th>Sex</th><th>Alignment</th><th class="num">Appearances</th></tr></thead>
-           <tbody>${top.map((d, i) => `
-             <tr>
-               <td>${i + 1}</td>
-               <td><i class="pub" style="background:${PUB_COLOR[lc(d.publisher)]}"></i>${d.name}</td>
-               <td>${d.sex || "—"}</td>
-               <td>${d.alignment || "—"}</td>
-               <td class="num">${d3.format(",")(d.appearances)}</td>
-             </tr>`).join("")}
-           </tbody>
-         </table>`
-      : `<p>No characters debuted in ${selectedYear} with the current filters.</p>`;
-
-    tableBox.innerHTML = `
-      <div class="yt-head">
-        <h3 class="yt-title">Top 10 most appearing characters that debuted in ${selectedYear}</h3>
-        <button class="yt-close" aria-label="Close table">×</button>
-      </div>${body}`;
-    tableBox.hidden = false;
-    tableBox.querySelector(".yt-close").addEventListener("click", () => {
-      selectedYear = null;
-      renderYearTable();
-      drawIdiom1(currentRows);
-    });
+  // Dashboard only: V1 takes the top half of its panel (same height as #idiom-3)
+  function fitDashboardHeight() {
+    const grid = document.querySelector("#idiom-1").closest(".grid");
+    if (!grid) return;
+    const ref = grid.querySelector("#idiom-3");
+    const h = ref ? ref.getBoundingClientRect().height : 0;
+    for (const id of ["#idiom-1", "#idiom-2"]) {
+      document.querySelector(id).style.height = h > 200 ? `${h}px` : "";
+    }
   }
 
-  // Empty the idiom box and add an SVG that fills it
+  // ---------- State and rendering ----------
+  let data = null;
+  let filters = null;
+  let firstCall = true;
+
+  function render() {
+    if (!data) return;
+    const era = lc(filters.era);
+    fitDashboardHeight();
+    // The timeline ignores the era filter (it zooms instead), other filters still apply
+    drawIdiom1(applyFilters(data.characters, { ...filters, era: "all" }), era);
+    drawIdiom2(applyFilters(data.characters, filters), era);
+  }
+
+  let resizeTimer;
+  window.addEventListener("resize", () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(render, 150);
+  });
+
+  // ---------- Era buttons (so script.js and every view stay in sync) ----------
+  function eraButton(name) {
+    const golden = [...document.querySelectorAll("button")]
+      .find((b) => lc(b.textContent.trim()) === "golden");
+    if (!golden) return null;
+    return [...golden.parentElement.querySelectorAll("button")]
+      .find((b) => lc(b.textContent.trim()) === name);
+  }
+
+  function setEra(era) {
+    const btn = eraButton(era);
+    if (btn) return btn.click();
+    filters = { ...filters, era }; // fallback: update this view only
+    render();
+  }
+
+  // Clicking the selected era again goes back to All
+  const toggleEra = (era) => setEra(era === lc(filters.era) ? "all" : era);
+
+  // ---------- Shared helpers ----------
   function makeSvg(id) {
-    const box = d3.select(id).classed("drawn", true); // tells script.js not to write its placeholder here
-    box.selectAll("*").remove();
-    box.text("");
-    const node = box.node();
-    const W = Math.max(320, node.clientWidth || 0);
-    const H = Math.max(260, node.clientHeight || 0);
+    const box = d3.select(id).classed("drawn", true); // tells script.js not to write its placeholder
+    box.text(""); // removes every child (elements and text)
+    const W = Math.max(320, box.node().clientWidth || 0);
+    const H = Math.max(260, box.node().clientHeight || 0);
     const svg = box.append("svg").attr("width", W).attr("height", H)
       .attr("viewBox", `0 0 ${W} ${H}`).style("display", "block");
     return { svg, W, H };
@@ -91,164 +94,259 @@
       .attr("fill", "#6b7280").text("No characters match these filters");
   }
 
-  // ---------- Idiom 1: debuts per year, male vs female ----------
-  function drawIdiom1(rows) {
+  function title(svg, text) {
+    svg.append("text").attr("x", 6).attr("y", 16)
+      .attr("font-size", 13).attr("font-weight", 700).text(text);
+  }
+
+  // One legend entry. kind: "line" (Idiom 1), "pill" (Idiom 2) or none (colored bold text)
+  function legendItem(svg, x, y, color, label, kind) {
+    if (kind === "line") {
+      svg.append("line").attr("x1", x).attr("x2", x + 18).attr("y1", y - 4).attr("y2", y - 4)
+        .attr("stroke", color).attr("stroke-width", 3);
+    } else if (kind === "pill") {
+      svg.append("rect").attr("x", x).attr("y", y - 10).attr("width", 26).attr("height", 12)
+        .attr("rx", 6).attr("fill", color);
+    }
+    const text = svg.append("text").attr("x", x + (kind === "line" ? 22 : kind === "pill" ? 32 : 0))
+      .attr("y", y).attr("font-size", kind === "line" ? 12 : 11).text(label);
+    if (!kind) text.attr("font-weight", 700).attr("fill", color);
+  }
+
+  // ---------- Idiom 1 (T1): female share of debuts per publisher ----------
+
+  // Per publisher and year: women, men and female share over the 5-year window
+  function femaleShare(rows, years) {
+    const byPub = d3.rollup(rows, (v) => v.length,
+      (d) => lc(d.publisher), (d) => d.first_year, (d) => lc(d.sex));
+    return PUBS.filter((p) => byPub.has(p)).map((pub) => {
+      const byYear = byPub.get(pub);
+      const count = (yr, sex) => byYear.get(yr)?.get(sex) ?? 0;
+      const values = years.map((year) => {
+        let women = 0, men = 0;
+        for (let k = year - WINDOW; k <= year + WINDOW; k++) {
+          women += count(k, "female");
+          men += count(k, "male");
+        }
+        return { year, women, men, share: women + men >= MIN_DEBUTS ? women / (women + men) : null };
+      });
+      return { pub, values };
+    });
+  }
+
+  // First year of each era, and its last year (= year before the next era starts)
+  function eraRanges(rows) {
+    const ranges = ERAS.map((era) => {
+      const ys = rows.filter((d) => lc(d.era) === era).map((d) => d.first_year);
+      return ys.length ? { era, start: d3.min(ys), end: d3.max(ys) } : null;
+    }).filter(Boolean);
+    ranges.forEach((r, i) => { if (ranges[i + 1]) r.end = ranges[i + 1].start - 1; });
+    return ranges;
+  }
+
+  function drawIdiom1(rows, era) {
     const { svg, W, H } = makeSvg("#idiom-1");
     const m = { top: 56, right: 24, bottom: 44, left: 50 };
-    const sexRows = rows.filter((d) => (lc(d.sex) === "male" || lc(d.sex) === "female") && d.first_year != null);
-    if (!sexRows.length) return emptyMessage(svg, W, H);
+    const sexed = rows.filter((d) => (lc(d.sex) === "male" || lc(d.sex) === "female") && d.first_year != null);
+    if (!sexed.length) return emptyMessage(svg, W, H);
 
-    const [y0, y1] = d3.extent(sexRows, (d) => d.first_year);
-    const years = d3.range(y0, y1 + 1);
-    const counts = d3.rollup(sexRows, (v) => v.length, (d) => lc(d.sex), (d) => d.first_year);
-    const series = ["male", "female"].map((sex) => ({
-      sex,
-      values: years.map((yr) => ({ year: yr, n: (counts.get(sex) || new Map()).get(yr) || 0 })),
-    }));
+    // Data. Windows use the full timeline, so the edges of a zoomed era
+    // still include the neighbouring years.
+    const [y0, y1] = d3.extent(sexed, (d) => d.first_year);
+    const series = femaleShare(sexed, d3.range(y0, y1 + 1));
+    const ranges = eraRanges(sexed);
+    const eraOf = (yr) => (ranges.find((r) => yr >= r.start && yr <= r.end) || {}).era;
+    const period = (yr) => `${yr - WINDOW}–${yr + WINDOW}`;
 
-    const x = d3.scaleLinear().domain([y0, Math.max(y1, y0 + 1)]).range([m.left, W - m.right]);
-    const yMax = d3.max(series, (s) => d3.max(s.values, (v) => v.n)) || 1;
-    const y = d3.scaleLinear().domain([0, yMax]).nice().range([H - m.bottom, m.top]);
+    // Years shown: the whole timeline, or only the selected era (zoom)
+    const zoom = ranges.find((r) => r.era === era);
+    const v0 = zoom ? zoom.start : y0;
+    const v1 = zoom ? zoom.end : y1;
+    const visible = (v) => v.year >= v0 && v.year <= v1;
 
-    // Era dividers (dashed) and labels
-    ERAS.forEach((era, i) => {
-      const ys = sexRows.filter((d) => lc(d.era) === era).map((d) => d.first_year);
-      if (!ys.length) return;
-      const a = d3.min(ys), b = d3.max(ys);
-      if (i > 0 && a > y0) {
-        svg.append("line").attr("x1", x(a)).attr("x2", x(a)).attr("y1", m.top - 6).attr("y2", H - m.bottom)
-          .attr("stroke", "#6b7280").attr("stroke-dasharray", "3 4");
-      }
-      svg.append("text").attr("x", x((a + b) / 2)).attr("y", m.top - 12).attr("text-anchor", "middle")
-        .attr("font-size", 11).attr("fill", "#6b7280").text(ERA_LABEL[era]);
-    });
+    // Scales and axes (y keeps the same scale in every zoom, so eras stay comparable)
+    const x = d3.scaleLinear().domain([v0, Math.max(v1, v0 + 1)]).range([m.left, W - m.right]);
+    const maxShare = d3.max(series, (s) => d3.max(s.values, (v) => v.share)) || 0;
+    const y = d3.scaleLinear().domain([0, Math.max(0.5, maxShare)]).nice().range([H - m.bottom, m.top]);
+    const yearAt = (event) => Math.max(v0, Math.min(v1, Math.round(x.invert(d3.pointer(event)[0]))));
 
     svg.append("g").attr("transform", `translate(0,${H - m.bottom})`)
-      .call(d3.axisBottom(x).ticks(8).tickFormat(d3.format("d")));
-    svg.append("g").attr("transform", `translate(${m.left},0)`).call(d3.axisLeft(y).ticks(5));
-    svg.append("text").attr("x", 6).attr("y", 16).attr("font-size", 13).attr("font-weight", 700)
-      .text("Debuts per year");
+      .call(d3.axisBottom(x).ticks(Math.min(8, v1 - v0)).tickFormat(d3.format("d")));
+    svg.append("g").attr("transform", `translate(${m.left},0)`)
+      .call(d3.axisLeft(y).ticks(5).tickFormat(pct));
 
-    [["male", "Male"], ["female", "Female"]].forEach(([k, label], i) => {
-      const lx = W - 160 + i * 80;
-      svg.append("line").attr("x1", lx).attr("x2", lx + 18).attr("y1", 12).attr("y2", 12)
-        .attr("stroke", SEX_COLOR[k]).attr("stroke-width", 3);
-      svg.append("text").attr("x", lx + 22).attr("y", 16).attr("font-size", 12).text(label);
+    // Title and legend
+    title(svg, "Female share of debuts (5-year rolling average)");
+    series.forEach((s, i) => legendItem(svg, W - 160 + i * 80, 16, PUB_COLOR[s.pub], PUB_LABEL[s.pub], "line"));
+
+    // Era dividers (dashed) and era names (names only when not zoomed)
+    ranges.forEach((r) => {
+      if (r.start > v0 && r.start <= v1) {
+        svg.append("line").attr("x1", x(r.start)).attr("x2", x(r.start))
+          .attr("y1", m.top - 6).attr("y2", H - m.bottom)
+          .attr("stroke", "#6b7280").attr("stroke-dasharray", "3 4");
+      }
+      if (!zoom) {
+        svg.append("text").attr("x", x((r.start + r.end) / 2)).attr("y", m.top - 12)
+          .attr("text-anchor", "middle").attr("font-size", 11).attr("fill", "#6b7280")
+          .text(ERA_LABEL[r.era]);
+      }
     });
 
-    const line = d3.line().x((d) => x(d.year)).y((d) => y(d.n));
-    svg.selectAll("path.series").data(series).join("path").attr("class", "series")
-      .attr("fill", "none").attr("stroke-width", 2.5).attr("stroke", (s) => SEX_COLOR[s.sex])
-      .attr("d", (s) => line(s.values));
+    // Lines (only the years shown); a line breaks where a window has too few debuts
+    const line = d3.line().defined((d) => d.share != null).x((d) => x(d.year)).y((d) => y(d.share));
+    svg.selectAll("path.share").data(series).join("path").attr("class", "share")
+      .attr("fill", "none").attr("stroke-width", 2).attr("stroke", (s) => PUB_COLOR[s.pub])
+      .attr("d", (s) => line(s.values.filter(visible)));
 
-    // Marker for the year whose table is open
-    const sel = svg.append("line").attr("y1", m.top).attr("y2", H - m.bottom)
-      .attr("stroke", "#1b1d22").attr("stroke-width", 2).style("display", "none");
-    if (selectedYear != null && selectedYear >= y0 && selectedYear <= y1) {
-      sel.style("display", null).attr("x1", x(selectedYear)).attr("x2", x(selectedYear));
-    }
-
-    // Hover: guide line, a dot on each line, and a small square next to the points
+    // Hover: guide line and a dot on each line; details in the shared tooltip
     const focus = svg.append("g").style("display", "none").style("pointer-events", "none");
     const guide = focus.append("line").attr("y1", m.top).attr("y2", H - m.bottom)
       .attr("stroke", "#1b1d22").attr("stroke-opacity", 0.35);
-    const dots = focus.selectAll("circle").data(series).join("circle").attr("r", 5)
-      .attr("fill", (s) => SEX_COLOR[s.sex]).attr("stroke", "#fff").attr("stroke-width", 1.5);
+    const hoverDots = focus.selectAll("circle").data(series).join("circle").attr("r", 5)
+      .attr("fill", (s) => PUB_COLOR[s.pub]).attr("stroke", "#fff").attr("stroke-width", 1.5);
 
-    const BW = 108, BH = 66;
-    const box = focus.append("g");
-    box.append("rect").attr("width", BW).attr("height", BH)
-      .attr("fill", "#fff").attr("stroke", "#1b1d22").attr("stroke-width", 2);
-    const tYear = box.append("text").attr("x", 10).attr("y", 18).attr("font-size", 13).attr("font-weight", 700);
-    const tMale = box.append("text").attr("x", 10).attr("y", 38).attr("font-size", 12);
-    const tFemale = box.append("text").attr("x", 10).attr("y", 56).attr("font-size", 12);
-    box.append("circle").attr("cx", BW - 14).attr("cy", 34).attr("r", 4).attr("fill", SEX_COLOR.male);
-    box.append("circle").attr("cx", BW - 14).attr("cy", 52).attr("r", 4).attr("fill", SEX_COLOR.female);
-
-    svg.append("rect").attr("x", m.left).attr("y", m.top).attr("width", W - m.left - m.right)
-      .attr("height", H - m.top - m.bottom).attr("fill", "transparent").style("cursor", "pointer")
+    svg.append("rect").attr("x", m.left).attr("y", m.top)
+      .attr("width", W - m.left - m.right).attr("height", H - m.top - m.bottom)
+      .attr("fill", "transparent").style("cursor", "pointer")
       .on("click", (event) => {
-        const [px] = d3.pointer(event);
-        selectedYear = Math.max(y0, Math.min(y1, Math.round(x.invert(px))));
-        sel.style("display", null).attr("x1", x(selectedYear)).attr("x2", x(selectedYear));
-        renderYearTable();
+        // Zoomed: back to All. Otherwise: zoom on the era of the clicked year
+        const target = zoom ? zoom.era : eraOf(yearAt(event));
+        if (target) toggleEra(target);
       })
       .on("mousemove", (event) => {
-        const [px] = d3.pointer(event);
-        const yr = Math.max(y0, Math.min(y1, Math.round(x.invert(px))));
+        const yr = yearAt(event);
         const i = yr - y0;
-        const mn = series[0].values[i].n, fn = series[1].values[i].n;
         const cx = x(yr);
 
         focus.style("display", null);
         guide.attr("x1", cx).attr("x2", cx);
-        dots.attr("cx", cx).attr("cy", (s) => y(s.values[i].n));
+        hoverDots.style("display", (s) => (s.values[i].share == null ? "none" : null))
+          .attr("cx", cx).attr("cy", (s) => y(s.values[i].share || 0));
 
-        tYear.text(yr);
-        tMale.text(`Men: ${mn}`);
-        tFemale.text(`Women: ${fn}`);
-
-        // Place the square beside the points; flip to the left near the right edge
-        const bx = cx + 14 + BW > W - 4 ? cx - 14 - BW : cx + 14;
-        const midY = (y(mn) + y(fn)) / 2;
-        const by = Math.max(m.top, Math.min(H - m.bottom - BH, midY - BH / 2));
-        box.attr("transform", `translate(${bx},${by})`);
+        const lines = series.map((s) => {
+          const v = s.values[i];
+          return `<span style="color:${PUB_COLOR[s.pub]}">●</span> <strong>${PUB_LABEL[s.pub]}</strong>: `
+            + (v.share == null ? "— (too few)" : pct(v.share))
+            + `<br><span style="color:#6b7280">${period(yr)}: ${v.women} women · ${v.men} men</span>`;
+        });
+        showTooltip(`<strong>${yr}</strong><br>${lines.join("<br>")}`, event);
       })
-      .on("mouseleave", () => focus.style("display", "none"));
+      .on("mouseleave", () => { focus.style("display", "none"); hideTooltip(); });
+
+    // Peak of each publisher within the years shown: a circle and "Peak X%".
+    // The details (period, women, men) are in the hover box, like any other year,
+    // so the peak ignores the mouse and lets the hover area underneath react.
+    // Highest label first; the next one goes at least 14px lower so labels never overlap.
+    const peaks = series.map((s) => {
+      const p = d3.greatest(s.values.filter((v) => v.share != null && visible(v)), (v) => v.share);
+      return p && { pub: s.pub, share: p.share, px: x(p.year), py: y(p.share) };
+    }).filter(Boolean).sort((a, b) => a.py - b.py);
+
+    const peakLayer = svg.append("g").style("pointer-events", "none");
+    let nextY = m.top + 10;
+    peaks.forEach((p) => {
+      const ly = Math.max(p.py - 10, nextY);
+      nextY = ly + 14;
+      const anchor = p.px > W - m.right - 40 ? "end" : p.px < m.left + 40 ? "start" : "middle";
+      peakLayer.append("circle").attr("cx", p.px).attr("cy", p.py).attr("r", 4)
+        .attr("fill", "#fff").attr("stroke", PUB_COLOR[p.pub]).attr("stroke-width", 2);
+      peakLayer.append("text").attr("x", p.px).attr("y", ly).attr("text-anchor", anchor)
+        .attr("font-size", 11).attr("font-weight", 700).attr("fill", PUB_COLOR[p.pub])
+        .attr("stroke", "#fff").attr("stroke-width", 3).attr("paint-order", "stroke")
+        .text(`Peak ${pct(p.share)}`);
+    });
   }
 
-  // ---------- Idiom 2: top 10 debutants by appearances ----------
-  function drawIdiom2(rows, filters) {
+  // ---------- Idiom 2 (T4): most appearing debutants + concentration ----------
+
+  // Share of a group's appearances held by its 10 most-appearing characters
+  function top10Share(list) {
+    const apps = list.map((d) => d.appearances).filter((a) => a > 0).sort(d3.descending);
+    const total = d3.sum(apps);
+    return total ? d3.sum(apps.slice(0, 10)) / total : null;
+  }
+
+  function drawIdiom2(rows, era) {
     const { svg, W, H } = makeSvg("#idiom-2");
-    const m = { top: 40, right: 56, bottom: 70, left: 140 };
-    const N = filters.era === "all" ? 20 : 10; // 20 entries when Era = All, otherwise 10
+    const m = { top: 52, right: 56, bottom: 70, left: 140 };
+    const isAll = era === "all";
+    const N = isAll ? 20 : 10;
     const top = rows.filter((d) => d.appearances > 0)
       .sort((a, b) => b.appearances - a.appearances).slice(0, N);
     if (!top.length) return emptyMessage(svg, W, H);
 
+    // Colors. All eras: bar = era, name = publisher. One era: bar = publisher
+    const pubColor = (d) => PUB_COLOR[lc(d.publisher)];
+    const barColor = (d) => (isAll ? ERA_COLOR[lc(d.era)] : pubColor(d));
+
+    // Title and concentration subtitle
+    const eraName = ERA_LABEL[era] || era;
+    title(svg, isAll ? `Top ${N} most appearing debutants, all eras`
+      : `Top ${N} most appearing debutants, ${eraName} Age`);
+
+    let subtitle;
+    if (isAll) {
+      const parts = ERAS.map((e) => {
+        const s = top10Share(rows.filter((d) => lc(d.era) === e));
+        return s == null ? null : `${ERA_LABEL[e]} ${pct(s)}`;
+      }).filter(Boolean);
+      subtitle = `Top 10 share of each era's appearances: ${parts.join(", ")}`;
+    } else {
+      const s = top10Share(rows);
+      subtitle = s == null ? "" : `These 10 hold ${pct(s)} of all ${eraName} Age appearances`;
+    }
+    svg.append("text").attr("x", 6).attr("y", 34).attr("font-size", 11).attr("fill", "#374151").text(subtitle);
+
+    // Scales and axis
     const x = d3.scaleLinear().domain([0, d3.max(top, (d) => d.appearances)]).nice()
       .range([m.left, W - m.right]);
     const y = d3.scaleBand().domain(top.map((d) => d.id)).range([m.top, H - m.bottom]).padding(0.2);
-
-    svg.append("text").attr("x", 6).attr("y", 16).attr("font-size", 13).attr("font-weight", 700)
-      .text(`All-time top ${N} most appearing debutants`);
+    const midY = (d) => y(d.id) + y.bandwidth() / 2 + 4;
 
     svg.append("g").attr("transform", `translate(0,${H - m.bottom})`).call(d3.axisBottom(x).ticks(5));
     svg.append("text").attr("x", W - m.right).attr("y", H - m.bottom + 34).attr("text-anchor", "end")
       .attr("font-size", 11).attr("fill", "#6b7280").text("appearances");
 
+    // Bars, names and values
     svg.selectAll("rect.bar").data(top).join("rect").attr("class", "bar")
-      .attr("x", m.left).attr("y", (d) => y(d.id)).attr("height", y.bandwidth())
-      .attr("width", (d) => x(d.appearances) - m.left)
-      .attr("fill", (d) => ERA_COLOR[lc(d.era)])
-      .attr("stroke", (d) => PUB_COLOR[lc(d.publisher)]).attr("stroke-width", 2.5)
+      .attr("x", m.left).attr("y", (d) => y(d.id))
+      .attr("width", (d) => x(d.appearances) - m.left).attr("height", y.bandwidth())
+      .attr("fill", barColor)
       .on("mousemove", (event, d) => showTooltip(
-        `<strong>${d.name}</strong><br>${d.publisher} · debut ${d.first_year} (${d.era})<br>${d3.format(",")(d.appearances)} appearances`, event))
+        `<strong>${d.name}</strong><br>${d.publisher} · debut ${d.first_year} (${d.era})<br>${num(d.appearances)} appearances`, event))
       .on("mouseleave", hideTooltip);
 
     svg.selectAll("text.name").data(top).join("text").attr("class", "name")
-      .attr("x", m.left - 6).attr("y", (d) => y(d.id) + y.bandwidth() / 2 + 4)
-      .attr("text-anchor", "end").attr("font-size", 11).text((d) => shortName(d.name));
+      .attr("x", m.left - 6).attr("y", midY).attr("text-anchor", "end").attr("font-size", 11)
+      .attr("font-weight", isAll ? 700 : 400)
+      .attr("fill", (d) => (isAll ? pubColor(d) : "currentColor"))
+      .text((d) => shortName(d.name));
 
     svg.selectAll("text.val").data(top).join("text").attr("class", "val")
-      .attr("x", (d) => x(d.appearances) + 4).attr("y", (d) => y(d.id) + y.bandwidth() / 2 + 4)
-      .attr("font-size", 10).attr("fill", "#6b7280").text((d) => d3.format(",")(d.appearances));
+      .attr("x", (d) => x(d.appearances) + 4).attr("y", midY)
+      .attr("font-size", 10).attr("fill", "#6b7280").text((d) => num(d.appearances));
 
-    // Era legend (bar color = era, outline = publisher)
-    ERAS.slice().reverse().forEach((era, i) => {
-      const lx = 10 + i * 100, ly = H - 22;
-      svg.append("rect").attr("x", lx).attr("y", ly - 10).attr("width", 26).attr("height", 12)
-        .attr("rx", 6).attr("fill", ERA_COLOR[era]);
-      svg.append("text").attr("x", lx + 32).attr("y", ly).attr("font-size", 11).text(ERA_LABEL[era]);
-    });
+    // Legend: eras + colored publisher names (All), or publisher bar colors (one era)
+    const ly = H - 22;
+    let lx = 10;
+    if (isAll) {
+      ERAS.slice().reverse().forEach((e) => { legendItem(svg, lx, ly, ERA_COLOR[e], ERA_LABEL[e], "pill"); lx += 90; });
+      PUBS.forEach((p) => { legendItem(svg, lx, ly, PUB_COLOR[p], PUB_LABEL[p]); lx += 80; });
+    } else {
+      PUBS.forEach((p) => { legendItem(svg, lx, ly, PUB_COLOR[p], PUB_LABEL[p], "pill"); lx += 80; });
+    }
   }
 
-  // script.js loads the CSV and calls this with (data, filters) on load and on every filter change
-  registerView((data, filters) => {
-    const rows = applyFilters(data.characters, filters);
-    currentRows = rows;
-    drawIdiom1(rows);
-    drawIdiom2(rows, filters);
-    renderYearTable();
+  // ---------- Connection with script.js ----------
+  // Called on load and on every filter change. On page open, always start with Era = All.
+  registerView((d, f) => {
+    data = d;
+    filters = f;
+    if (firstCall) {
+      firstCall = false;
+      if (lc(f.era) !== "all") return setEra("all");
+    }
+    render();
   });
 })();
