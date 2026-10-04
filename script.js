@@ -116,11 +116,3 @@ window.addEventListener("resize", () => {
   clearTimeout(resizeTimer);
   resizeTimer = setTimeout(updateAll, 150);
 });
-
-// Temporary: boxes without a chart yet show how many characters pass the filters
-registerView((data, filters) => {
-  const n = applyFilters(data.characters, filters).length;
-  document.querySelectorAll(".idiom:not(.drawn)").forEach((el) => {
-    el.textContent = `${el.id}: ${n.toLocaleString()} characters`;
-  });
-});

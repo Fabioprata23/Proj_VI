@@ -4,10 +4,19 @@
   // ---------- Constants ----------
   const ERAS = ["golden", "silver", "bronze", "modern"];
   const ERA_LABEL = { golden: "Golden", silver: "Silver", bronze: "Bronze", modern: "Modern" };
-  const ERA_COLOR = { golden: "#dccdf2", silver: "#b99ee3", bronze: "#9a73d4", modern: "#6a3cb0" };
+  // Colors come from the CSS variables in style.css (single source of truth).
+  // The second value is a fallback if the variable is missing.
+  const css = getComputedStyle(document.documentElement);
+  const cssVar = (name, fallback) => css.getPropertyValue(name).trim() || fallback;
+  const ERA_COLOR = {
+    golden: cssVar("--golden", "#dccdf2"),
+    silver: cssVar("--silver", "#b99ee3"),
+    bronze: cssVar("--bronze", "#9a73d4"),
+    modern: cssVar("--modern", "#6a3cb0"),
+  };
   const PUBS = ["marvel", "dc"];
   const PUB_LABEL = { marvel: "Marvel", dc: "DC" };
-  const PUB_COLOR = { marvel: "#e0464e", dc: "#2f6fdb" };
+  const PUB_COLOR = { marvel: cssVar("--marvel", "#e0464e"), dc: cssVar("--dc", "#2f6fdb") };
 
   const WINDOW = 2;     // rolling average over ±2 years = 5 years
   const MIN_DEBUTS = 5; // no value when a publisher has fewer debuts in the 5-year window
@@ -18,15 +27,7 @@
   const num = d3.format(",");
 
   // ---------- Layout ----------
-  const style = document.createElement("style");
-  style.textContent = `
-    /* Charts fill fixed-size boxes on every page */
-    .idiom.drawn { position: relative; overflow: hidden; min-width: 0; height: 28rem; }
-    .idiom.drawn > svg { position: absolute; top: 0; left: 0; }
-    /* Dashboard: views not built yet (V2, V3) stay as empty rectangles */
-    .grid .idiom:not(.drawn) { color: transparent; user-select: none; }
-  `;
-  document.head.appendChild(style);
+  // Box sizes are defined in style.css (.idiom.drawn).
 
   // Dashboard only: V1 takes the top half of its panel (same height as #idiom-3)
   function fitDashboardHeight() {
@@ -53,27 +54,11 @@
     drawIdiom2(applyFilters(data.characters, filters), era);
   }
 
-  let resizeTimer;
-  window.addEventListener("resize", () => {
-    clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(render, 150);
-  });
+  // No resize listener: script.js already redraws every view on resize.
 
-  // ---------- Era buttons (so script.js and every view stay in sync) ----------
-  function eraButton(name) {
-    const golden = [...document.querySelectorAll("button")]
-      .find((b) => lc(b.textContent.trim()) === "golden");
-    if (!golden) return null;
-    return [...golden.parentElement.querySelectorAll("button")]
-      .find((b) => lc(b.textContent.trim()) === name);
-  }
-
-  function setEra(era) {
-    const btn = eraButton(era);
-    if (btn) return btn.click();
-    filters = { ...filters, era }; // fallback: update this view only
-    render();
-  }
+  // ---------- Era selection (shared mechanism of script.js) ----------
+  // setFilter updates the chips, saves the choice and redraws every registered view.
+  const setEra = (era) => setFilter("era", era);
 
   // Clicking the selected era again goes back to All
   const toggleEra = (era) => setEra(era === lc(filters.era) ? "all" : era);
@@ -91,12 +76,11 @@
 
   function emptyMessage(svg, W, H) {
     svg.append("text").attr("x", W / 2).attr("y", H / 2).attr("text-anchor", "middle")
-      .attr("fill", "#6b7280").text("No characters match these filters");
+      .style("fill", "var(--muted)").text("No characters match these filters");
   }
 
   function title(svg, text) {
-    svg.append("text").attr("x", 6).attr("y", 16)
-      .attr("font-size", 13).attr("font-weight", 700).text(text);
+    svg.append("text").attr("class", "chart-title").attr("x", 6).attr("y", 16).text(text);
   }
 
   // One legend entry. kind: "line" (Idiom 1), "pill" (Idiom 2) or none (colored bold text)
@@ -170,9 +154,9 @@
     const y = d3.scaleLinear().domain([0, Math.max(0.5, maxShare)]).nice().range([H - m.bottom, m.top]);
     const yearAt = (event) => Math.max(v0, Math.min(v1, Math.round(x.invert(d3.pointer(event)[0]))));
 
-    svg.append("g").attr("transform", `translate(0,${H - m.bottom})`)
+    svg.append("g").attr("class", "axis").attr("transform", `translate(0,${H - m.bottom})`)
       .call(d3.axisBottom(x).ticks(Math.min(8, v1 - v0)).tickFormat(d3.format("d")));
-    svg.append("g").attr("transform", `translate(${m.left},0)`)
+    svg.append("g").attr("class", "axis").attr("transform", `translate(${m.left},0)`)
       .call(d3.axisLeft(y).ticks(5).tickFormat(pct));
 
     // Title and legend
@@ -184,11 +168,11 @@
       if (r.start > v0 && r.start <= v1) {
         svg.append("line").attr("x1", x(r.start)).attr("x2", x(r.start))
           .attr("y1", m.top - 6).attr("y2", H - m.bottom)
-          .attr("stroke", "#6b7280").attr("stroke-dasharray", "3 4");
+          .style("stroke", "var(--muted)").attr("stroke-dasharray", "3 4");
       }
       if (!zoom) {
         svg.append("text").attr("x", x((r.start + r.end) / 2)).attr("y", m.top - 12)
-          .attr("text-anchor", "middle").attr("font-size", 11).attr("fill", "#6b7280")
+          .attr("text-anchor", "middle").attr("font-size", 11).style("fill", "var(--muted)")
           .text(ERA_LABEL[r.era]);
       }
     });
@@ -202,7 +186,7 @@
     // Hover: guide line and a dot on each line; details in the shared tooltip
     const focus = svg.append("g").style("display", "none").style("pointer-events", "none");
     const guide = focus.append("line").attr("y1", m.top).attr("y2", H - m.bottom)
-      .attr("stroke", "#1b1d22").attr("stroke-opacity", 0.35);
+      .style("stroke", "var(--ink)").attr("stroke-opacity", 0.35);
     const hoverDots = focus.selectAll("circle").data(series).join("circle").attr("r", 5)
       .attr("fill", (s) => PUB_COLOR[s.pub]).attr("stroke", "#fff").attr("stroke-width", 1.5);
 
@@ -228,7 +212,7 @@
           const v = s.values[i];
           return `<span style="color:${PUB_COLOR[s.pub]}">●</span> <strong>${PUB_LABEL[s.pub]}</strong>: `
             + (v.share == null ? "— (too few)" : pct(v.share))
-            + `<br><span style="color:#6b7280">${period(yr)}: ${v.women} women · ${v.men} men</span>`;
+            + `<br><span style="color:var(--muted)">${period(yr)}: ${v.women} women · ${v.men} men</span>`;
         });
         showTooltip(`<strong>${yr}</strong><br>${lines.join("<br>")}`, event);
       })
@@ -304,9 +288,10 @@
     const y = d3.scaleBand().domain(top.map((d) => d.id)).range([m.top, H - m.bottom]).padding(0.2);
     const midY = (d) => y(d.id) + y.bandwidth() / 2 + 4;
 
-    svg.append("g").attr("transform", `translate(0,${H - m.bottom})`).call(d3.axisBottom(x).ticks(5));
+    svg.append("g").attr("class", "axis").attr("transform", `translate(0,${H - m.bottom})`)
+      .call(d3.axisBottom(x).ticks(5));
     svg.append("text").attr("x", W - m.right).attr("y", H - m.bottom + 34).attr("text-anchor", "end")
-      .attr("font-size", 11).attr("fill", "#6b7280").text("appearances");
+      .attr("font-size", 11).style("fill", "var(--muted)").text("appearances");
 
     // Bars, names and values
     svg.selectAll("rect.bar").data(top).join("rect").attr("class", "bar")
@@ -325,7 +310,7 @@
 
     svg.selectAll("text.val").data(top).join("text").attr("class", "val")
       .attr("x", (d) => x(d.appearances) + 4).attr("y", midY)
-      .attr("font-size", 10).attr("fill", "#6b7280").text((d) => num(d.appearances));
+      .attr("font-size", 10).style("fill", "var(--muted)").text((d) => num(d.appearances));
 
     // Legend: eras + colored publisher names (All), or publisher bar colors (one era)
     const ly = H - 22;

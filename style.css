@@ -8,8 +8,14 @@
 }
 
 :root {
+  /* Publisher colors (legend + every chart) */
   --dc: #2f6fdb;
   --marvel: #e0464e;
+  /* Era colors (light = oldest, dark = newest) */
+  --golden: #dccdf2;
+  --silver: #b99ee3;
+  --bronze: #9a73d4;
+  --modern: #6a3cb0;
   --ink: #1b1d22;
   --muted: #6b7280;
   --paper: #fafaf7;
@@ -262,12 +268,35 @@ body {
 
 /* ---- Charts ---- */
 
-/* A box that holds a chart: white frame, the SVG fills the box */
+/* A box that holds a chart: white frame, fixed height, the SVG fills the box */
 .idiom.drawn {
   display: block;
   position: relative;
+  overflow: hidden;
+  min-width: 0;
+  height: 28rem;
   background: #fff;
   border: 2px solid var(--line);
+}
+
+/* Sketch images (CPII) standing in for idioms not implemented yet */
+.idiom.shot {
+  padding: 0;
+  background: #fff;
+  overflow: hidden;
+}
+
+.idiom.shot img {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.grid .idiom.drawn.shot {
+  min-height: 0;
 }
 
 .idiom.drawn > svg {
@@ -290,52 +319,6 @@ body {
 .axis path,
 .axis line {
   stroke: var(--muted);
-}
-
-/* Idiom 1: era bands */
-.era-band {
-  cursor: pointer;
-}
-
-.era-band rect {
-  fill: var(--panel);
-  opacity: 0.55;
-}
-
-.era-band:nth-child(even) rect {
-  opacity: 0.25;
-}
-
-.era-band:hover rect {
-  opacity: 0.9;
-}
-
-.era-band.selected rect {
-  fill: var(--ink);
-  opacity: 0.12;
-}
-
-.era-band text {
-  font-size: 0.75rem;
-  font-weight: 700;
-  fill: var(--ink);
-}
-
-.era-band.selected text {
-  text-decoration: underline;
-}
-
-/* Idiom 1: lines and hover */
-.share-line {
-  fill: none;
-  stroke-width: 2.5;
-  pointer-events: none;
-}
-
-.hover-line {
-  stroke: var(--ink);
-  stroke-dasharray: 3 3;
-  pointer-events: none;
 }
 
 /* Tooltip shared by all charts */
