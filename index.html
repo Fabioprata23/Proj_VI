@@ -5,6 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Marvel vs DC, 1935-2013</title>
   <link rel="stylesheet" href="style.css" />
+  <style>
+    .idiom.shot { padding: 0; background: #fff; overflow: hidden; }
+    .idiom.shot img { display: block; width: 100%; height: 100%; object-fit: contain; }
+    .grid .idiom.drawn.shot { min-height: 0; }
+  </style>
 </head>
 <body>
   <header class="topbar">
@@ -32,8 +37,8 @@
     <section class="panel v2">
       <h2><a href="V2.html">V2 · Power vs popularity</a></h2>
       <div class="panel-body stack">
-        <div class="idiom" id="idiom-3">idiom 3</div>
-        <div class="idiom" id="idiom-4">idiom 4</div>
+        <div class="idiom drawn shot" id="idiom-3"><img src="images/v2-scatter.png" alt="V2 sketch: power vs popularity scatter plot" /></div>
+        <div class="idiom drawn shot" id="idiom-4"><img src="images/v2-ranges.png" alt="V2 sketch: range plot by era and publisher" /></div>
       </div>
     </section>
 
@@ -41,8 +46,8 @@
     <section class="panel v3">
       <h2><a href="V3.html">V3 · Origin flow and team overlap</a></h2>
       <div class="panel-body two-col">
-        <div class="idiom" id="idiom-5">idiom 5</div>
-        <div class="idiom" id="idiom-6">idiom 6</div>
+        <div class="idiom drawn shot" id="idiom-5"><img src="images/v3-origin-flow.png" alt="V3 sketch: origin flow diagram" /></div>
+        <div class="idiom drawn shot" id="idiom-6"><img src="images/v3-team-overlap.png" alt="V3 sketch: team overlap matrix" /></div>
       </div>
     </section>
   </main>
