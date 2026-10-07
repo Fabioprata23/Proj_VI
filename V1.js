@@ -9,14 +9,14 @@
   const css = getComputedStyle(document.documentElement);
   const cssVar = (name, fallback) => css.getPropertyValue(name).trim() || fallback;
   const ERA_COLOR = {
-    golden: cssVar("--golden", "#dccdf2"),
-    silver: cssVar("--silver", "#b99ee3"),
-    bronze: cssVar("--bronze", "#9a73d4"),
-    modern: cssVar("--modern", "#6a3cb0"),
+    golden: cssVar("--golden", "#dcb05a"),
+    silver: cssVar("--silver", "#94b866"),
+    bronze: cssVar("--bronze", "#5aa89a"),
+    modern: cssVar("--modern", "#9d84c8")
   };
   const PUBS = ["marvel", "dc"];
   const PUB_LABEL = { marvel: "Marvel", dc: "DC" };
-  const PUB_COLOR = { marvel: cssVar("--marvel", "#e0464e"), dc: cssVar("--dc", "#2f6fdb") };
+  const PUB_COLOR = { marvel: cssVar("--marvel", "#b8504b"), dc: cssVar("--dc", "#3d6a9e") };
 
   const WINDOW = 2;     // rolling average over ±2 years = 5 years
   const MIN_DEBUTS = 5; // no value when a publisher has fewer debuts in the 5-year window
