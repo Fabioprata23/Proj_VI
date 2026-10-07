@@ -126,32 +126,26 @@ body {
 
 .chip.active[data-value="golden"] { 
   background: var(--golden); 
-  border-color: var(--golden); 
   color: var(--ink); 
 }
 .chip.active[data-value="silver"] { 
-  background: var(--silver); 
-  border-color: var(--silver); 
+  background: var(--silver);  
   color: var(--ink); 
 }
 .chip.active[data-value="bronze"] { 
-  background: var(--bronze); 
-  border-color: var(--bronze); 
+  background: var(--bronze);  
   color: var(--ink); 
 }
 .chip.active[data-value="modern"] { 
-  background: var(--modern); 
-  border-color: var(--modern); 
+  background: var(--modern);  
   color: var(--ink); 
 }
 
 .chip.active[data-value="marvel"] { 
-  background: var(--marvel); 
-  border-color: var(--marvel); 
+  background: var(--marvel);  
   color: #fff; }
 .chip.active[data-value="dc"]     { 
-  background: var(--dc);     
-  border-color: var(--dc);     
+  background: var(--dc);          
   color: #fff; }
 
 .chip:focus-visible {
