@@ -6,6 +6,8 @@ const FILTERS = [
     ["both", "Both"], ["marvel", "Marvel"], ["dc", "DC"] ] },
   { key: "alignment", label: "Alignment", options: [
     ["all", "All"], ["good", "Good"], ["neutral", "Neutral"], ["bad", "Bad"] ] },
+  { key: "sex", label: "Gender", options: [
+    ["female", "Female"], ["male", "Male"] ] }
 ];
 
 const STORAGE_KEY = "dashboard-filters";

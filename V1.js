@@ -50,7 +50,7 @@
     const era = lc(filters.era);
     //fitDashboardHeight();
     // The timeline ignores the era filter (it zooms instead), other filters still apply
-    drawIdiom1(applyFilters(data.characters, { ...filters, era: "all" }), era);
+    drawIdiom1(applyFilters(data.characters, { ...filters, era: "all" }), era, lc(filters.sex));
     drawIdiom2(applyFilters(data.characters, filters), era);
   }
 
@@ -100,7 +100,7 @@
   // ---------- Idiom 1 (T1): female share of debuts per publisher ----------
 
   // Per publisher and year: women, men and female share over the 5-year window
-  function femaleShare(rows, years) {
+  function genderShare(rows, years,sex) {
     const byPub = d3.rollup(rows, (v) => v.length,
       (d) => lc(d.publisher), (d) => d.first_year, (d) => lc(d.sex));
     return PUBS.filter((p) => byPub.has(p)).map((pub) => {
@@ -112,7 +112,8 @@
           women += count(k, "female");
           men += count(k, "male");
         }
-        return { year, women, men, share: women + men >= MIN_DEBUTS ? women / (women + men) : null };
+        const kept = sex === "male" ? men : women;
+        return { year, women, men, share: women + men >= MIN_DEBUTS ? kept / (women + men) : null };
       });
       return { pub, values };
     });
@@ -128,7 +129,7 @@
     return ranges;
   }
 
-  function drawIdiom1(rows, era) {
+  function drawIdiom1(rows, era, sex) {
     const { svg, W, H } = makeSvg("#idiom-1");
     const m = { top: 56, right: 24, bottom: 44, left: 50 };
     const sexed = rows.filter((d) => (lc(d.sex) === "male" || lc(d.sex) === "female") && d.first_year != null);
@@ -137,7 +138,7 @@
     // Data. Windows use the full timeline, so the edges of a zoomed era
     // still include the neighbouring years.
     const [y0, y1] = d3.extent(sexed, (d) => d.first_year);
-    const series = femaleShare(sexed, d3.range(y0, y1 + 1));
+    const series = genderShare(sexed, d3.range(y0, y1 + 1),sex);
     const ranges = eraRanges(sexed);
     const eraOf = (yr) => (ranges.find((r) => yr >= r.start && yr <= r.end) || {}).era;
     const period = (yr) => `${yr - WINDOW}–${yr + WINDOW}`;
@@ -160,7 +161,7 @@
       .call(d3.axisLeft(y).ticks(5).tickFormat(pct));
 
     // Title and legend
-    title(svg, "Female share of debuts (5-year rolling average)");
+    title(svg, `${sex==="male" ? "Male" : "Female"} share of debuts (5-year rolling average)`);
     series.forEach((s, i) => legendItem(svg, W - 160 + i * 80, 16, PUB_COLOR[s.pub], PUB_LABEL[s.pub], "line"));
 
     // Era dividers (dashed) and era names (names only when not zoomed)
