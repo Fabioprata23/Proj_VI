@@ -314,13 +314,10 @@
 
     // Legend: eras + colored publisher names (All), or publisher bar colors (one era)
     const ly = H - 22;
-    let lx = 10;
+    let lx = 40;
     if (isAll) {
-      ERAS.slice().reverse().forEach((e) => { legendItem(svg, lx, ly, ERA_COLOR[e], ERA_LABEL[e], "pill"); lx += 90; });
-      PUBS.forEach((p) => { legendItem(svg, lx, ly, PUB_COLOR[p], PUB_LABEL[p]); lx += 80; });
-    } else {
-      PUBS.forEach((p) => { legendItem(svg, lx, ly, PUB_COLOR[p], PUB_LABEL[p], "pill"); lx += 80; });
-    }
+      ERAS.slice().forEach((e) => { legendItem(svg, lx, ly, ERA_COLOR[e], ERA_LABEL[e], "pill"); lx += 90; });
+    } 
   }
 
   // ---------- Connection with script.js ----------
