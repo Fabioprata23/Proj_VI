@@ -48,7 +48,7 @@
   function render() {
     if (!data) return;
     const era = lc(filters.era);
-    fitDashboardHeight();
+    //fitDashboardHeight();
     // The timeline ignores the era filter (it zooms instead), other filters still apply
     drawIdiom1(applyFilters(data.characters, { ...filters, era: "all" }), era);
     drawIdiom2(applyFilters(data.characters, filters), era);
