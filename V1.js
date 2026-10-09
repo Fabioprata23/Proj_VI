@@ -97,9 +97,9 @@
     if (!kind) text.attr("font-weight", 700).attr("fill", color);
   }
 
-  // ---------- Idiom 1 (T1): female share of debuts per publisher ----------
+  // ---------- Idiom 1 (T1): Gender share of debuts per publisher ----------
 
-  // Per publisher and year: women, men and female share over the 5-year window
+  // Per publisher and year: Gender share over the 5-year window
   function genderShare(rows, years,sex) {
     const byPub = d3.rollup(rows, (v) => v.length,
       (d) => lc(d.publisher), (d) => d.first_year, (d) => lc(d.sex));
@@ -129,71 +129,138 @@
     return ranges;
   }
 
-  function drawIdiom1(rows, era, sex) {
-    const { svg, W, H } = makeSvg("#idiom-1");
-    const m = { top: 56, right: 24, bottom: 44, left: 50 };
-    const sexed = rows.filter((d) => (lc(d.sex) === "male" || lc(d.sex) === "female") && d.first_year != null);
-    if (!sexed.length) return emptyMessage(svg, W, H);
+  // Tween for one line: redraws it at every frame, moving from its previous
+  // state (scales + values, stored on the <path>) to the new one.
+  function lineTween(x, y) {
+    return function (s) {
+      const old = this._state || { values: s.values, x: x.domain(), y: y.domain() };
+      this._state = { values: s.values, x: x.domain(), y: y.domain() };
+      const ix = d3.interpolate(old.x, x.domain());
+      const iy = d3.interpolate(old.y, y.domain());
+      const oldShare = new Map(old.values.map((v) => [v.year, v.share]));
+      return (k) => {
+        const xk = x.copy().domain(ix(k)), yk = y.copy().domain(iy(k));
+        return d3.line().defined((d) => d.share != null)
+          .x((d) => xk(d.year))
+          .y((d) => {
+            const a = oldShare.get(d.year);
+            return yk(a == null ? d.share : a + (d.share - a) * k);
+          })(s.values);
+      };
+    };
+  }
 
-    // Data. Windows use the full timeline, so the edges of a zoomed era
-    // still include the neighbouring years.
+  let ui1 = null; //Idiom 1 elements, kept between renders for animation
+
+  function setupIdiom1(){
+    const { svg, W, H } = makeSvg("#idiom-1");
+    const m = { top: 56, right: 24, bottom: 44, left: 50};
+
+    svg.append("clipPath").attr("id","clip-idiom1").append("rect")
+      .attr("x", m.left).attr("y",0)
+      .attr("width", W - m.left - m.right).attr("height", H - m.bottom);
+    
+    const ui = { svg, W, H, m };
+
+    ui.title = svg.append("text").attr("class", "chart-title").attr("x",6).attr("y",16);
+    ui.legend = svg.append("g");
+    ui.xAxis = svg.append("g").attr("class", "axis").attr("transform", `translate(0,${H - m.bottom})`);
+    ui.yAxis = svg.append("g").attr("class", "axis").attr("transform", `translate(${m.left},0)`);
+    ui.eras   = svg.append("g").attr("clip-path", "url(#clip-idiom1)");
+    ui.lines  = svg.append("g").attr("clip-path", "url(#clip-idiom1)");
+    ui.peaks  = svg.append("g").style("pointer-events", "none");
+
+    // (4) Hover elements
+    ui.focus  = svg.append("g").style("display", "none").style("pointer-events", "none");
+    ui.guide  = ui.focus.append("line").attr("y1", m.top).attr("y2", H - m.bottom)
+      .style("stroke", "var(--ink)").attr("stroke-opacity", 0.35);
+    ui.hover  = svg.append("rect").attr("x", m.left).attr("y", m.top)
+      .attr("width", W - m.left - m.right).attr("height", H - m.top - m.bottom)
+      .attr("fill", "transparent").style("cursor", "pointer");
+
+    // (5) "No data" message, hidden until needed
+    ui.empty  = svg.append("text").attr("x", W / 2).attr("y", H / 2).attr("text-anchor", "middle")
+      .style("fill", "var(--muted)").style("display", "none")
+      .text("No characters match these filters");
+
+    return ui
+  }
+
+  function drawIdiom1(rows, era, sex) {
+    // (A) Skeleton: built the first time, or again if the box changed size
+    const node = document.querySelector("#idiom-1");
+    const W = Math.max(320, node.clientWidth || 0), H = Math.max(260, node.clientHeight || 0);
+    if (!ui1 || ui1.W !== W || ui1.H !== H) ui1 = setupIdiom1();
+    const { svg, m } = ui1;
+    const t = svg.transition().duration(750).ease(d3.easeCubicInOut);
+
+    // (B) Empty case: hide the chart, show the message
+    const sexed = rows.filter((d) => (lc(d.sex) === "male" || lc(d.sex) === "female") && d.first_year != null);
+    const parts = [ui1.title, ui1.legend, ui1.xAxis, ui1.yAxis, ui1.eras, ui1.lines, ui1.peaks, ui1.hover];
+    parts.forEach((p) => p.style("display", sexed.length ? null : "none"));
+    ui1.empty.style("display", sexed.length ? "none" : null);
+    if (!sexed.length) return;
+
+    // (C) Data — unchanged
     const [y0, y1] = d3.extent(sexed, (d) => d.first_year);
-    const series = genderShare(sexed, d3.range(y0, y1 + 1),sex);
+    const series = genderShare(sexed, d3.range(y0, y1 + 1), sex);
     const ranges = eraRanges(sexed);
     const eraOf = (yr) => (ranges.find((r) => yr >= r.start && yr <= r.end) || {}).era;
     const period = (yr) => `${yr - WINDOW}–${yr + WINDOW}`;
 
-    // Years shown: the whole timeline, or only the selected era (zoom)
+    // (D) Zoom and scales — unchanged
     const zoom = ranges.find((r) => r.era === era);
     const v0 = zoom ? zoom.start : y0;
     const v1 = zoom ? zoom.end : y1;
     const visible = (v) => v.year >= v0 && v.year <= v1;
-
-    // Scales and axes (y keeps the same scale in every zoom, so eras stay comparable)
     const x = d3.scaleLinear().domain([v0, Math.max(v1, v0 + 1)]).range([m.left, W - m.right]);
     const maxShare = d3.max(series, (s) => d3.max(s.values, (v) => v.share)) || 0;
     const y = d3.scaleLinear().domain([0, Math.max(0.5, maxShare)]).nice().range([H - m.bottom, m.top]);
     const yearAt = (event) => Math.max(v0, Math.min(v1, Math.round(x.invert(d3.pointer(event)[0]))));
 
-    svg.append("g").attr("class", "axis").attr("transform", `translate(0,${H - m.bottom})`)
-      .call(d3.axisBottom(x).ticks(Math.min(8, v1 - v0)).tickFormat(d3.format("d")));
-    svg.append("g").attr("class", "axis").attr("transform", `translate(${m.left},0)`)
-      .call(d3.axisLeft(y).ticks(5).tickFormat(pct));
+    // (E) Axes: drawn into the existing groups, animated
+    ui1.xAxis.transition(t).call(d3.axisBottom(x).ticks(Math.min(8, v1 - v0)).tickFormat(d3.format("d")));
+    ui1.yAxis.transition(t).call(d3.axisLeft(y).ticks(5).tickFormat(pct));
 
-    // Title and legend
-    title(svg, `${sex==="male" ? "Male" : "Female"} share of debuts (5-year rolling average)`);
-    series.forEach((s, i) => legendItem(svg, W - 160 + i * 80, 16, PUB_COLOR[s.pub], PUB_LABEL[s.pub], "line"));
+    // (F) Title and legend
+    ui1.title.text(`${sex === "male" ? "Male" : "Female"} share of debuts (5-year rolling average)`);
+    ui1.legend.selectAll("*").remove();
+    series.forEach((s, i) => legendItem(ui1.legend, W - 160 + i * 80, 16, PUB_COLOR[s.pub], PUB_LABEL[s.pub], "line"));
 
-    // Era dividers (dashed) and era names (names only when not zoomed)
-    ranges.forEach((r) => {
-      if (r.start > v0 && r.start <= v1) {
-        svg.append("line").attr("x1", x(r.start)).attr("x2", x(r.start))
-          .attr("y1", m.top - 6).attr("y2", H - m.bottom)
-          .style("stroke", "var(--muted)").attr("stroke-dasharray", "3 4");
-      }
-      if (!zoom) {
-        svg.append("text").attr("x", x((r.start + r.end) / 2)).attr("y", m.top - 12)
-          .attr("text-anchor", "middle").attr("font-size", 11).style("fill", "var(--muted)")
-          .text(ERA_LABEL[r.era]);
-      }
-    });
+    // (G) Era dividers (dashed) and era names (names only when not zoomed)
+    ui1.eras.selectAll("line").data(ranges, (r) => r.era)
+      .join((enter) => enter.append("line").attr("y1", m.top - 6).attr("y2", H - m.bottom)
+        .style("stroke", "var(--muted)").attr("stroke-dasharray", "3 4")
+        .attr("x1", (r) => x(r.start)).attr("x2", (r) => x(r.start)))
+      .transition(t)
+      .attr("x1", (r) => x(r.start)).attr("x2", (r) => x(r.start))
+      .attr("opacity", (r) => (r.start > v0 && r.start <= v1 ? 1 : 0));
 
-    // Lines (only the years shown); a line breaks where a window has too few debuts
-    const line = d3.line().defined((d) => d.share != null).x((d) => x(d.year)).y((d) => y(d.share));
-    svg.selectAll("path.share").data(series).join("path").attr("class", "share")
-      .attr("fill", "none").attr("stroke-width", 2).attr("stroke", (s) => PUB_COLOR[s.pub])
-      .attr("d", (s) => line(s.values.filter(visible)));
+    ui1.eras.selectAll("text").data(ranges, (r) => r.era)
+      .join((enter) => enter.append("text").attr("y", m.top - 12).attr("text-anchor", "middle")
+        .attr("font-size", 11).style("fill", "var(--muted)").text((r) => ERA_LABEL[r.era])
+        .attr("x", (r) => x((r.start + r.end) / 2)))
+      .transition(t)
+      .attr("x", (r) => x((r.start + r.end) / 2))
+      .attr("opacity", zoom ? 0 : 1);
 
-    // Hover: guide line and a dot on each line; details in the shared tooltip
-    const focus = svg.append("g").style("display", "none").style("pointer-events", "none");
-    const guide = focus.append("line").attr("y1", m.top).attr("y2", H - m.bottom)
-      .style("stroke", "var(--ink)").attr("stroke-opacity", 0.35);
-    const hoverDots = focus.selectAll("circle").data(series).join("circle").attr("r", 5)
+    // (H) Lines: whole timeline (the clip hides what is outside), animated
+    ui1.lines.selectAll("path.share").data(series, (s) => s.pub)
+      .join(
+        (enter) => enter.append("path").attr("class", "share").attr("fill", "none")
+          .attr("stroke-width", 2).attr("stroke", (s) => PUB_COLOR[s.pub]).attr("opacity", 0),
+        (update) => update,
+        (exit) => exit.transition(t).attr("opacity", 0).remove()
+      )
+      .transition(t)
+      .attr("opacity", 1)
+      .attrTween("d", lineTween(x, y));
+
+    // (I) Hover: permanent elements, handlers re-attached on every render
+    const hoverDots = ui1.focus.selectAll("circle").data(series, (s) => s.pub).join("circle").attr("r", 5)
       .attr("fill", (s) => PUB_COLOR[s.pub]).attr("stroke", "#fff").attr("stroke-width", 1.5);
 
-    svg.append("rect").attr("x", m.left).attr("y", m.top)
-      .attr("width", W - m.left - m.right).attr("height", H - m.top - m.bottom)
-      .attr("fill", "transparent").style("cursor", "pointer")
+    ui1.hover
       .on("click", (event) => {
         // Zoomed: back to All. Otherwise: zoom on the era of the clicked year
         const target = zoom ? zoom.era : eraOf(yearAt(event));
@@ -204,8 +271,8 @@
         const i = yr - y0;
         const cx = x(yr);
 
-        focus.style("display", null);
-        guide.attr("x1", cx).attr("x2", cx);
+        ui1.focus.style("display", null);
+        ui1.guide.attr("x1", cx).attr("x2", cx);
         hoverDots.style("display", (s) => (s.values[i].share == null ? "none" : null))
           .attr("cx", cx).attr("cy", (s) => y(s.values[i].share || 0));
 
@@ -217,30 +284,41 @@
         });
         showTooltip(`<strong>${yr}</strong><br>${lines.join("<br>")}`, event);
       })
-      .on("mouseleave", () => { focus.style("display", "none"); hideTooltip(); });
+      .on("mouseleave", () => { ui1.focus.style("display", "none"); hideTooltip(); });
 
-    // Peak of each publisher within the years shown: a circle and "Peak X%".
-    // The details (period, women, men) are in the hover box, like any other year,
-    // so the peak ignores the mouse and lets the hover area underneath react.
+    // (J) Peaks: compute the positions first, then animate circles and labels.
     // Highest label first; the next one goes at least 14px lower so labels never overlap.
     const peaks = series.map((s) => {
       const p = d3.greatest(s.values.filter((v) => v.share != null && visible(v)), (v) => v.share);
       return p && { pub: s.pub, share: p.share, px: x(p.year), py: y(p.share) };
     }).filter(Boolean).sort((a, b) => a.py - b.py);
 
-    const peakLayer = svg.append("g").style("pointer-events", "none");
     let nextY = m.top + 10;
     peaks.forEach((p) => {
-      const ly = Math.max(p.py - 10, nextY);
-      nextY = ly + 14;
-      const anchor = p.px > W - m.right - 40 ? "end" : p.px < m.left + 40 ? "start" : "middle";
-      peakLayer.append("circle").attr("cx", p.px).attr("cy", p.py).attr("r", 4)
-        .attr("fill", "#fff").attr("stroke", PUB_COLOR[p.pub]).attr("stroke-width", 2);
-      peakLayer.append("text").attr("x", p.px).attr("y", ly).attr("text-anchor", anchor)
-        .attr("font-size", 11).attr("font-weight", 700).attr("fill", PUB_COLOR[p.pub])
-        .attr("stroke", "#fff").attr("stroke-width", 3).attr("paint-order", "stroke")
-        .text(`Peak ${pct(p.share)}`);
+      p.ly = Math.max(p.py - 10, nextY);
+      nextY = p.ly + 14;
+      p.anchor = p.px > W - m.right - 40 ? "end" : p.px < m.left + 40 ? "start" : "middle";
     });
+
+    const pk = ui1.peaks.selectAll("g.peak").data(peaks, (p) => p.pub)
+      .join((enter) => {
+        const g = enter.append("g").attr("class", "peak");
+        g.append("circle").attr("r", 4).attr("fill", "#fff").attr("stroke-width", 2)
+          .attr("stroke", (p) => PUB_COLOR[p.pub]).attr("cx", (p) => p.px).attr("cy", (p) => p.py);
+        g.append("text").attr("font-size", 11).attr("font-weight", 700)
+          .attr("fill", (p) => PUB_COLOR[p.pub]).attr("stroke", "#fff").attr("stroke-width", 3)
+          .attr("paint-order", "stroke").attr("x", (p) => p.px).attr("y", (p) => p.ly);
+        return g;
+      });
+
+    pk.select("circle").transition(t).attr("cx", (p) => p.px).attr("cy", (p) => p.py);
+    pk.select("text").attr("text-anchor", (p) => p.anchor)
+      .transition(t).attr("x", (p) => p.px).attr("y", (p) => p.ly)
+      .textTween(function (p) {
+        const i = d3.interpolate(this._share ?? p.share, p.share);
+        this._share = p.share;
+        return (k) => `Peak ${pct(i(k))}`;
+      });
   }
 
   // ---------- Idiom 2 (T4): most appearing debutants + concentration ----------
