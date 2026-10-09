@@ -74,15 +74,6 @@
     return { svg, W, H };
   }
 
-  function emptyMessage(svg, W, H) {
-    svg.append("text").attr("x", W / 2).attr("y", H / 2).attr("text-anchor", "middle")
-      .style("fill", "var(--muted)").text("No characters match these filters");
-  }
-
-  function title(svg, text) {
-    svg.append("text").attr("class", "chart-title").attr("x", 6).attr("y", 16).text(text);
-  }
-
   // One legend entry. kind: "line" (Idiom 1), "pill" (Idiom 2) or none (colored bold text)
   function legendItem(svg, x, y, color, label, kind) {
     if (kind === "line") {
@@ -330,22 +321,59 @@
     return total ? d3.sum(apps.slice(0, 10)) / total : null;
   }
 
-  function drawIdiom2(rows, era) {
+  let ui2 = null; // Idiom 2 elements, kept between renders for animation
+
+  function setupIdiom2() {
     const { svg, W, H } = makeSvg("#idiom-2");
     const m = { top: 52, right: 56, bottom: 70, left: 140 };
+    const ui = { svg, W, H, m };
+
+    ui.title    = svg.append("text").attr("class", "chart-title").attr("x", 6).attr("y", 16);
+    ui.subtitle = svg.append("text").attr("x", 6).attr("y", 34).attr("font-size", 11).attr("fill", "#374151");
+    ui.xAxis    = svg.append("g").attr("class", "axis").attr("transform", `translate(0,${H - m.bottom})`);
+    ui.xLabel   = svg.append("text").attr("x", W - m.right).attr("y", H - m.bottom + 34).attr("text-anchor", "end")
+      .attr("font-size", 11).style("fill", "var(--muted)").text("appearances");
+    ui.bars     = svg.append("g");
+    ui.names    = svg.append("g");
+    ui.vals     = svg.append("g");
+    ui.legend   = svg.append("g");
+    // Era legend (bar colors), the same in every era: drawn once
+    ERAS.forEach((e, i) => legendItem(ui.legend, 40 + i * 90, H - 22, ERA_COLOR[e], ERA_LABEL[e], "pill"));
+
+    // "No data" message, hidden until needed
+    ui.empty    = svg.append("text").attr("x", W / 2).attr("y", H / 2).attr("text-anchor", "middle")
+      .style("fill", "var(--muted)").style("display", "none")
+      .text("No characters match these filters");
+
+    return ui;
+  }
+
+  function drawIdiom2(rows, era) {
+    // Skeleton: built the first time, or again if the box changed size
+    const node = document.querySelector("#idiom-2");
+    const W = Math.max(320, node.clientWidth || 0), H = Math.max(260, node.clientHeight || 0);
+    if (!ui2 || ui2.W !== W || ui2.H !== H) ui2 = setupIdiom2();
+    const { svg, m } = ui2;
+    const t = svg.transition().duration(750).ease(d3.easeCubicInOut);
+
     const isAll = era === "all";
     const N = isAll ? 20 : 10;
     const top = rows.filter((d) => d.appearances > 0)
       .sort((a, b) => b.appearances - a.appearances).slice(0, N);
-    if (!top.length) return emptyMessage(svg, W, H);
 
-    // Colors. All eras: bar = era, name = publisher. One era: bar = publisher
+    // Empty case: hide the chart, show the message
+    const parts = [ui2.title, ui2.subtitle, ui2.xAxis, ui2.xLabel, ui2.bars, ui2.names, ui2.vals, ui2.legend];
+    parts.forEach((p) => p.style("display", top.length ? null : "none"));
+    ui2.empty.style("display", top.length ? "none" : null);
+    if (!top.length) return;
+
+    // Colors, the same in every era: bar = era, name = publisher
     const pubColor = (d) => PUB_COLOR[lc(d.publisher)];
-    const barColor = (d) => (isAll ? ERA_COLOR[lc(d.era)] : pubColor(d));
+    const barColor = (d) => ERA_COLOR[lc(d.era)];
 
     // Title and concentration subtitle
     const eraName = ERA_LABEL[era] || era;
-    title(svg, isAll ? `Top ${N} most appearing debutants, all eras`
+    ui2.title.text(isAll ? `Top ${N} most appearing debutants, all eras`
       : `Top ${N} most appearing debutants, ${eraName} Age`);
 
     let subtitle;
@@ -359,7 +387,7 @@
       const s = top10Share(rows);
       subtitle = s == null ? "" : `These 10 hold ${pct(s)} of all ${eraName} Age appearances`;
     }
-    svg.append("text").attr("x", 6).attr("y", 34).attr("font-size", 11).attr("fill", "#374151").text(subtitle);
+    ui2.subtitle.text(subtitle);
 
     // Scales and axis
     const x = d3.scaleLinear().domain([0, d3.max(top, (d) => d.appearances)]).nice()
@@ -367,36 +395,48 @@
     const y = d3.scaleBand().domain(top.map((d) => d.id)).range([m.top, H - m.bottom]).padding(0.2);
     const midY = (d) => y(d.id) + y.bandwidth() / 2 + 4;
 
-    svg.append("g").attr("class", "axis").attr("transform", `translate(0,${H - m.bottom})`)
-      .call(d3.axisBottom(x).ticks(5));
-    svg.append("text").attr("x", W - m.right).attr("y", H - m.bottom + 34).attr("text-anchor", "end")
-      .attr("font-size", 11).style("fill", "var(--muted)").text("appearances");
+    ui2.xAxis.transition(t).call(d3.axisBottom(x).ticks(5));
 
-    // Bars, names and values
-    svg.selectAll("rect.bar").data(top).join("rect").attr("class", "bar")
-      .attr("x", m.left).attr("y", (d) => y(d.id))
-      .attr("width", (d) => x(d.appearances) - m.left).attr("height", y.bandwidth())
-      .attr("fill", barColor)
+    // Bars, names and values, keyed by character: a character still in the
+    // ranking slides to its new rank, a new one grows in, a removed one fades out.
+    ui2.bars.selectAll("rect.bar").data(top, (d) => d.id)
+      .join(
+        (enter) => enter.append("rect").attr("class", "bar")
+          .attr("x", m.left).attr("y", (d) => y(d.id)).attr("height", y.bandwidth())
+          .attr("width", 0).attr("fill", barColor),
+        (update) => update,
+        (exit) => exit.transition(t).attr("width", 0).attr("opacity", 0).remove()
+      )
       .on("mousemove", (event, d) => showTooltip(
         `<strong>${d.name}</strong><br>${d.publisher} · debut ${d.first_year} (${d.era})<br>${num(d.appearances)} appearances`, event))
-      .on("mouseleave", hideTooltip);
+      .on("mouseleave", hideTooltip)
+      .transition(t)
+      .attr("y", (d) => y(d.id)).attr("height", y.bandwidth())
+      .attr("width", (d) => x(d.appearances) - m.left)
+      .attr("opacity", 1);
 
-    svg.selectAll("text.name").data(top).join("text").attr("class", "name")
-      .attr("x", m.left - 6).attr("y", midY).attr("text-anchor", "end").attr("font-size", 11)
-      .attr("font-weight", isAll ? 700 : 400)
-      .attr("fill", (d) => (isAll ? pubColor(d) : "currentColor"))
-      .text((d) => shortName(d.name));
+    ui2.names.selectAll("text.name").data(top, (d) => d.id)
+      .join(
+        (enter) => enter.append("text").attr("class", "name")
+          .attr("x", m.left - 6).attr("y", midY).attr("text-anchor", "end").attr("font-size", 11)
+          .attr("font-weight", 700).attr("fill", pubColor)
+          .attr("opacity", 0).text((d) => shortName(d.name)),
+        (update) => update,
+        (exit) => exit.transition(t).attr("opacity", 0).remove()
+      )
+      .transition(t)
+      .attr("y", midY).attr("opacity", 1);
 
-    svg.selectAll("text.val").data(top).join("text").attr("class", "val")
-      .attr("x", (d) => x(d.appearances) + 4).attr("y", midY)
-      .attr("font-size", 10).style("fill", "var(--muted)").text((d) => num(d.appearances));
-
-    // Legend: eras + colored publisher names (All), or publisher bar colors (one era)
-    const ly = H - 22;
-    let lx = 40;
-    if (isAll) {
-      ERAS.slice().forEach((e) => { legendItem(svg, lx, ly, ERA_COLOR[e], ERA_LABEL[e], "pill"); lx += 90; });
-    } 
+    ui2.vals.selectAll("text.val").data(top, (d) => d.id)
+      .join(
+        (enter) => enter.append("text").attr("class", "val")
+          .attr("x", m.left + 4).attr("y", midY).attr("font-size", 10).style("fill", "var(--muted)")
+          .attr("opacity", 0).text((d) => num(d.appearances)),
+        (update) => update,
+        (exit) => exit.transition(t).attr("opacity", 0).remove()
+      )
+      .transition(t)
+      .attr("x", (d) => x(d.appearances) + 4).attr("y", midY).attr("opacity", 1);
   }
 
   // ---------- Connection with script.js ----------
