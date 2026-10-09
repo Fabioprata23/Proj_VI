@@ -178,28 +178,28 @@
   }
 
   function drawIdiom1(rows, era, sex) {
-    // (A) Skeleton: built the first time, or again if the box changed size
+    // Skeleton: built the first time, or again if the box changed size
     const node = document.querySelector("#idiom-1");
     const W = Math.max(320, node.clientWidth || 0), H = Math.max(260, node.clientHeight || 0);
     if (!ui1 || ui1.W !== W || ui1.H !== H) ui1 = setupIdiom1();
     const { svg, m } = ui1;
     const t = svg.transition().duration(750).ease(d3.easeCubicInOut);
 
-    // (B) Empty case: hide the chart, show the message
+    // empty case: hide the chart, show the message
     const sexed = rows.filter((d) => (lc(d.sex) === "male" || lc(d.sex) === "female") && d.first_year != null);
     const parts = [ui1.title, ui1.legend, ui1.xAxis, ui1.yAxis, ui1.eras, ui1.lines, ui1.peaks, ui1.hover];
     parts.forEach((p) => p.style("display", sexed.length ? null : "none"));
     ui1.empty.style("display", sexed.length ? "none" : null);
     if (!sexed.length) return;
 
-    // (C) Data — unchanged
+    //  Data 
     const [y0, y1] = d3.extent(sexed, (d) => d.first_year);
     const series = genderShare(sexed, d3.range(y0, y1 + 1), sex);
     const ranges = eraRanges(sexed);
     const eraOf = (yr) => (ranges.find((r) => yr >= r.start && yr <= r.end) || {}).era;
     const period = (yr) => `${yr - WINDOW}–${yr + WINDOW}`;
 
-    // (D) Zoom and scales — unchanged
+    // Zoom and scales 
     const zoom = ranges.find((r) => r.era === era);
     const v0 = zoom ? zoom.start : y0;
     const v1 = zoom ? zoom.end : y1;
@@ -209,16 +209,16 @@
     const y = d3.scaleLinear().domain([0, Math.max(0.5, maxShare)]).nice().range([H - m.bottom, m.top]);
     const yearAt = (event) => Math.max(v0, Math.min(v1, Math.round(x.invert(d3.pointer(event)[0]))));
 
-    // (E) Axes: drawn into the existing groups, animated
+    // Axes: drawn into the existing groups, animated
     ui1.xAxis.transition(t).call(d3.axisBottom(x).ticks(Math.min(8, v1 - v0)).tickFormat(d3.format("d")));
     ui1.yAxis.transition(t).call(d3.axisLeft(y).ticks(5).tickFormat(pct));
 
-    // (F) Title and legend
+    // Title and legend
     ui1.title.text(`${sex === "male" ? "Male" : "Female"} share of debuts (5-year rolling average)`);
     ui1.legend.selectAll("*").remove();
     series.forEach((s, i) => legendItem(ui1.legend, W - 160 + i * 80, 16, PUB_COLOR[s.pub], PUB_LABEL[s.pub], "line"));
 
-    // (G) Era dividers (dashed) and era names (names only when not zoomed)
+    // Era dividers (dashed) and era names (names only when not zoomed)
     ui1.eras.selectAll("line").data(ranges, (r) => r.era)
       .join((enter) => enter.append("line").attr("y1", m.top - 6).attr("y2", H - m.bottom)
         .style("stroke", "var(--muted)").attr("stroke-dasharray", "3 4")
