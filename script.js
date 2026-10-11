@@ -7,7 +7,7 @@ const FILTERS = [
   { key: "alignment", label: "Alignment", options: [
     ["all", "All"], ["good", "Good"], ["neutral", "Neutral"], ["bad", "Bad"] ] },
   { key: "sex", label: "Gender", options: [
-    ["female", "Female"], ["male", "Male"] ] }
+    ["all","All"],["female", "Female"], ["male", "Male"]]}
 ];
 
 const STORAGE_KEY = "dashboard-filters";
@@ -35,7 +35,8 @@ function applyFilters(rows, f) {
   return rows.filter((d) =>
     (f.era === "all" || low(d.era) === f.era) &&
     (f.publisher === "both" || low(d.publisher) === f.publisher) &&
-    (f.alignment === "all" || low(d.alignment) === f.alignment)
+    (f.alignment === "all" || low(d.alignment) === f.alignment) &&
+    (f.sex === "all" || low(d.sex) === f.sex)
   );
 }
 
@@ -50,6 +51,16 @@ function registerView(updateFn) {
 function updateAll() {
   if (!DATA) return;
   views.forEach((update) => update(DATA, { ...state }));
+}
+// ---- Shared highlight: one character lit up in every view ----
+let highlighted = null;
+const highlightListeners = [];
+function onHighlight(fn) { highlightListeners.push(fn); }
+function getHighlight() { return highlighted; }
+function setHighlight(id) {
+  if (id === highlighted) return;
+  highlighted = id;
+  highlightListeners.forEach((fn) => fn(id));
 }
 
 // Change one filter from anywhere (a chip, or a click inside a chart).
