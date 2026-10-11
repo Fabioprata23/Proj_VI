@@ -373,27 +373,29 @@ body {
 .tooltip.visible {
   opacity: 1;
 }
-/* V3 team menu, next to the panel title */
-.team-filter {
-  display: inline-flex;
+/* V3 team menu, next to the panel title. Same look as V2's "Power stat" (.v2-controls in V2.js) */
+.panel.v3 h2 {
+  display: flex;
   align-items: center;
-  gap: 0.4rem;
-  margin-left: 0.75rem;
-  font-size: 0.85rem;
-  font-weight: 600;
 }
 
-.team-filter select {
+.v3-controls {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  align-items: center;
+  gap: 0.6rem;
+  margin-left: 1rem;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.v3-controls select {
   font: inherit;
-  max-width: 14rem;
-  padding: 0.1rem 0.35rem;
+  font-weight: 700;
+  padding: 0.2rem 0.5rem;
   border: 2px solid var(--line);
   background: #fff;
   color: var(--ink);
   cursor: pointer;
-}
-
-.team-filter select.active {
-  background: var(--ink);
-  color: #fff;
 }
