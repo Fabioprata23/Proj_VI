@@ -52,6 +52,16 @@ function updateAll() {
   if (!DATA) return;
   views.forEach((update) => update(DATA, { ...state }));
 }
+// ---- Shared highlight: one character lit up in every view ----
+let highlighted = null;
+const highlightListeners = [];
+function onHighlight(fn) { highlightListeners.push(fn); }
+function getHighlight() { return highlighted; }
+function setHighlight(id) {
+  if (id === highlighted) return;
+  highlighted = id;
+  highlightListeners.forEach((fn) => fn(id));
+}
 
 // Change one filter from anywhere (a chip, or a click inside a chart).
 // Updates the chips, remembers the choice, and redraws every view.

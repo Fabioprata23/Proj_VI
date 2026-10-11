@@ -178,7 +178,7 @@
     if (!data || !filters) return;
     const hasStat = (d) => typeof d[stat] === "number" && !Number.isNaN(d[stat]);
     const all = data.characters.filter(hasStat);   // every character with power stats
-    const rows = applyFilters(all, filters);       // the ones passing the era, publisher and alignment filters
+    const rows = applyFilters(all, filters);       // the ones passing the era, publisher, alignment and gender filters
     drawScatter(all, rows);
     drawRanges(all, rows);
   }
@@ -237,7 +237,7 @@
   // ---------- Idiom 3: appearances (log scale) vs the selected stat ----------
   function drawScatter(all, rows) {
     const { svg, W, H, fresh } = getSvg("#idiom-3", scatterStore);
-    const L = getLayers(svg, scatterStore, ["grid", "fits", "points", "gap", "labels", "axes", "chrome"]);
+    const L = getLayers(svg, scatterStore, ["grid", "fits", "points", "gap", "labels", "focus", "axes", "chrome"]);
     svg.selectAll("text.v2-message").remove();
     L.chrome.selectAll("*").remove();
     L.gap.selectAll("*").remove();
@@ -252,6 +252,7 @@
     const allPts = all.filter(withApp);
     const pts = rows.filter(withApp);
     if (!pts.length) {
+      scatterStore.last = null;
       showMessage(L, svg, W, H, "No characters match these filters");
       title(svg.append("g"), "Power vs popularity");
       return;
@@ -385,9 +386,10 @@
           L.gap.append("circle").attr("cx", x(d[stat])).attr("cy", yLine).attr("r", 3.5).attr("fill", GAP_COLOR);
         }
         showTooltip(pointTip(d), event);
+        setHighlight(d.id);
       })
       .on("mousemove", (event, d) => showTooltip(pointTip(d), event))
-      .on("mouseleave", () => { L.gap.selectAll("*").remove(); hideTooltip(); });
+      .on("mouseleave", () => { L.gap.selectAll("*").remove(); hideTooltip(); setHighlight(null); });
     L.gap.style("pointer-events", "none");
 
     // Names of the most appearing characters (moved down when two labels would overlap); keyed by character
@@ -409,12 +411,15 @@
         .attr("stroke", "#fff").attr("stroke-width", 3).attr("paint-order", "stroke").text((d) => d.text),
       place: (sel) => sel.attr("x", (d) => d.x).attr("y", (d) => d.y),
     });
+
+    scatterStore.last = { L, x, y, m, W, H, pts };
+    highlightScatter(getHighlight());
   }
 
   // ---------- Idiom 4: distribution of the selected stat by era and publisher ----------
   function drawRanges(all, rows) {
     const { svg, W, H, fresh } = getSvg("#idiom-4", rangeStore);
-    const L = getLayers(svg, rangeStore, ["base", "marks", "hover", "axes", "chrome"]);
+    const L = getLayers(svg, rangeStore, ["base", "marks", "focus", "hover", "axes", "chrome"]);
     svg.selectAll("text.v2-message").remove();
     L.chrome.selectAll("*").remove();
     L.base.selectAll("*").remove();
@@ -424,6 +429,7 @@
     const compact = H < 260;
     const m = { top: compact ? 44 : 58, right: 58, bottom: compact ? 36 : 38, left: 78 };
     if (!rows.length) {
+      rangeStore.last = null;
       showMessage(L, svg, W, H, "No characters match these filters");
       title(svg.append("g"), `${statLabel()} by era and publisher`);
       return;
@@ -551,7 +557,62 @@
         `<br>Middle 50%: ${d3.format(".0f")(d.q1)} to ${d3.format(".0f")(d.q3)}` +
         `<br>Lowest to highest: ${d.lo} to ${d.hi}`, event))
       .on("mouseleave", hideTooltip);
+
+    rangeStore.last = { L, x, rows, groups };
+    highlightRanges(getHighlight());
   }
+
+  // ---------- Shared highlight (script.js): show the hovered character in both V2 charts ----------
+  // Scatter: a ring around its point and its name, the other points fade.
+  // If it has no power stats, a short note says so instead of showing nothing.
+  function highlightScatter(id) {
+    const s = scatterStore.last;
+    if (!s) return;
+    const layer = s.L.focus.style("pointer-events", "none");
+    layer.selectAll("*").remove();
+    const d = id == null ? null : s.pts.find((p) => p.id === id);
+    s.L.points.selectAll("path.pt").attr("fill-opacity", (p) => (!d ? 0.8 : p.id === id ? 1 : 0.2));
+    if (id == null) return;
+    if (!d) {
+      const c = data.characters.find((p) => p.id === id);
+      layer.append("text").attr("x", s.W - s.m.right).attr("y", s.H - s.m.bottom - 8).attr("text-anchor", "end")
+        .attr("font-size", 11).attr("font-style", "italic").attr("fill", MUTED())
+        .text(`${c ? shortName(c.name) : "This character"}: no power stats`);
+      return;
+    }
+    const cx = s.x(d[stat]), cy = s.y(d.appearances);
+    layer.append("circle").attr("cx", cx).attr("cy", cy).attr("r", 10)
+      .attr("fill", "none").attr("stroke", INK()).attr("stroke-width", 2.5);
+    // Already one of the named characters: its name is there, do not write it twice
+    if (!s.L.labels.selectAll("text.name").filter((p) => p.id === id).empty()) return;
+    const right = cx < s.W - s.m.right - 90;
+    layer.append("text").attr("x", right ? cx + 14 : cx - 14).attr("y", cy - 10)
+      .attr("text-anchor", right ? "start" : "end").attr("font-size", 11).attr("font-weight", 800)
+      .attr("fill", INK()).attr("stroke", "#fff").attr("stroke-width", 3).attr("paint-order", "stroke")
+      .text(shortName(d.name));
+  }
+
+  // Range plot: a tick at the character's value, in its era and publisher lane.
+  function highlightRanges(id) {
+    const s = rangeStore.last;
+    if (!s) return;
+    const layer = s.L.focus.style("pointer-events", "none");
+    layer.selectAll("*").remove();
+    const d = id == null ? null : s.rows.find((p) => p.id === id);
+    if (!d) return;
+    const g = s.groups.find((gr) => gr.era === lc(d.era) && gr.pub === lc(d.publisher));
+    if (!g) return;
+    const cx = s.x(d[stat]);
+    layer.append("line").attr("x1", cx).attr("x2", cx)
+      .attr("y1", g.cy - g.laneH / 2 + 1).attr("y2", g.cy + g.laneH / 2 - 1)
+      .attr("stroke", INK()).attr("stroke-width", 3);
+    layer.append("text").attr("x", cx + 5).attr("y", g.cy - g.barH / 2 - 2)
+      .attr("font-size", 10).attr("font-weight", 800).attr("fill", INK())
+      .attr("stroke", "#fff").attr("stroke-width", 3).attr("paint-order", "stroke")
+      .text(shortName(d.name));
+  }
+
+  onHighlight((id) => { highlightScatter(id); highlightRanges(id); });
 
   // ---------- Era filter from inside a chart (uses the filter bar, so every view stays in sync) ----------
   function toggleEra(era) {

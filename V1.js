@@ -413,7 +413,8 @@
       )
       .on("mousemove", (event, d) => showTooltip(
         `<strong>${d.name}</strong><br>${d.publisher} · debut ${d.first_year} (${d.era})<br>${num(d.appearances)} appearances`, event))
-      .on("mouseleave", hideTooltip)
+      .on("mouseenter", (event, d) => setHighlight(d.id))
+      .on("mouseleave", () => { hideTooltip(); setHighlight(null); })
       .transition(t)
       .attr("y", (d) => y(d.id)).attr("height", y.bandwidth())
       .attr("width", (d) => x(d.appearances) - m.left)
@@ -441,7 +442,19 @@
       )
       .transition(t)
       .attr("x", (d) => x(d.appearances) + 4).attr("y", midY).attr("opacity", 1);
+    highlightIdiom2(getHighlight());
   }
+    function highlightIdiom2(id) {
+    if (!ui2) return;
+    const bars = ui2.bars.selectAll("rect.bar");
+    const inTop = id != null && !bars.filter((d) => d.id === id).empty();
+    const dim = (d) => (inTop && d.id !== id ? 0.25 : 1);
+    bars.attr("fill-opacity", dim)
+      .attr("stroke", (d) => (inTop && d.id === id ? "var(--ink)" : null)).attr("stroke-width", 1.5);
+    ui2.names.selectAll("text.name").attr("fill-opacity", dim);
+    ui2.vals.selectAll("text.val").attr("fill-opacity", dim);
+  }
+  onHighlight(highlightIdiom2);
 
   // ---------- Connection with script.js ----------
   // Called on load and on every filter change. On page open, always start with Era = All.
