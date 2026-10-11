@@ -50,8 +50,10 @@
     const era = lc(filters.era);
     //fitDashboardHeight();
     // The timeline ignores the era filter (it zooms instead), other filters still apply
-    drawIdiom1(applyFilters(data.characters, { ...filters, era: "all" }), era, lc(filters.sex));
-    drawIdiom2(applyFilters(data.characters, filters), era);
+    //drawIdiom1(applyFilters(data.characters, { ...filters, era: "all" }), era, lc(filters.sex));
+    //drawIdiom2(applyFilters(data.characters, filters), era);
+    drawIdiom1(applyFilters(data.characters, { ...filters, era: "all", sex: "all" }), era, lc(filters.sex));
+    drawIdiom2(applyFilters(data.characters, filters), era, lc(filters.sex));
   }
 
   // No resize listener: script.js already redraws every view on resize.
@@ -348,7 +350,7 @@
     return ui;
   }
 
-  function drawIdiom2(rows, era) {
+  function drawIdiom2(rows, era,sex) {
     // Skeleton: built the first time, or again if the box changed size
     const node = document.querySelector("#idiom-2");
     const W = Math.max(320, node.clientWidth || 0), H = Math.max(260, node.clientHeight || 0);
@@ -373,9 +375,11 @@
 
     // Title and concentration subtitle
     const eraName = ERA_LABEL[era] || era;
-    ui2.title.text(isAll ? `Top ${N} most appearing debutants, all eras`
-      : `Top ${N} most appearing debutants, ${eraName} Age`);
-
+    //.text(isAll ? `Top ${N} most appearing debutants, all eras`
+      //: `Top ${N} most appearing debutants, ${eraName} Age`);
+    const who = sex === "female" ? "female " : sex === "male" ? "male " : "";
+    ui2.title.text(isAll ? `Top ${N} most appearing ${who}debutants, all eras`
+      : `Top ${N} most appearing ${who}debutants, ${eraName} Age`);
     let subtitle;
     if (isAll) {
       const parts = ERAS.map((e) => {

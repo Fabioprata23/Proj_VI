@@ -7,7 +7,7 @@ const FILTERS = [
   { key: "alignment", label: "Alignment", options: [
     ["all", "All"], ["good", "Good"], ["neutral", "Neutral"], ["bad", "Bad"] ] },
   { key: "sex", label: "Gender", options: [
-    ["female", "Female"], ["male", "Male"] ] }
+    ["all","All"],["female", "Female"], ["male", "Male"]]}
 ];
 
 const STORAGE_KEY = "dashboard-filters";
@@ -35,7 +35,8 @@ function applyFilters(rows, f) {
   return rows.filter((d) =>
     (f.era === "all" || low(d.era) === f.era) &&
     (f.publisher === "both" || low(d.publisher) === f.publisher) &&
-    (f.alignment === "all" || low(d.alignment) === f.alignment)
+    (f.alignment === "all" || low(d.alignment) === f.alignment) &&
+    (f.sex === "all" || low(d.sex) === f.sex)
   );
 }
 
