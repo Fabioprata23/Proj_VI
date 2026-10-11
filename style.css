@@ -373,3 +373,27 @@ body {
 .tooltip.visible {
   opacity: 1;
 }
+/* V3 team menu, next to the panel title */
+.team-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-left: 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.team-filter select {
+  font: inherit;
+  max-width: 14rem;
+  padding: 0.1rem 0.35rem;
+  border: 2px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.team-filter select.active {
+  background: var(--ink);
+  color: #fff;
+}
