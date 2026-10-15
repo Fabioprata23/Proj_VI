@@ -8,7 +8,7 @@
 }
 
 :root {
-  /* Publisher colors (legend + every chart) */
+  /* Publisher colors (every chart) */
   /*--dc: #2f6fdb;
   --marvel: #e0464e;*/
   --dc: #3d6a9e;      
@@ -42,13 +42,14 @@ body {
   overflow: hidden;
 }
 
-/* Title + legend */
+/* Title + filter bar on the same line */
 .topbar {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  gap: 1rem;
-  margin-bottom: 1rem;
+  align-items: center;
+  gap: 1rem 1.5rem;
+  margin-bottom: var(--gap);
+  container-type: inline-size;
 }
 
 .topbar h1 {
@@ -56,67 +57,83 @@ body {
   font-size: 1.9rem;
   font-weight: 800;
   letter-spacing: 0.01em;
+  line-height: 1.05;
+  white-space: nowrap;
 }
 
-.legend {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  font-weight: 600;
+/* The years on their own line, just below the title */
+.topbar h1 .years {
+  display: block;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--muted);
 }
-
-.legend-item {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-}
-
-.swatch {
-  display: inline-block;
-  width: 3rem;
-  height: 1rem;
-}
-
-.swatch.dc { background: var(--dc); }
-.swatch.marvel { background: var(--marvel); }
 
 /* Filter bar */
+/* One line. Every size is in em of the bar's font size, and that font size
+   follows the window width (vw), so the whole bar shrinks with the window
+   instead of wrapping: 12px from 1400px wide, 9px at 1120px.
+   Below 1120px the bar wraps (see the media query at the end). */
 .filters {
+  flex: 0 1 auto; /* as wide as its content, no wider */
   display: flex;
-  flex-wrap: wrap;
-  gap: 1rem 3rem;
-  padding: 0.9rem 1.5rem;
-  margin-bottom: var(--gap);
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  font-size: clamp(9px, calc((100cqi - 15rem)/90), 14px);
+  gap: 1.35em;
+  padding: 0.6em 1.2em;
   border: 2px solid var(--line);
   background: #fff;
 }
 
 .filter-group {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.4em;
 }
 
 .filter-label {
-  font-size: 1.15rem;
+  font-size: 1.13em;
   font-weight: 700;
-  margin-right: 0.4rem;
+  margin-right: 0.15em;
 }
 
 .chip {
   font: inherit;
   font-weight: 600;
-  font-size: 0.9rem;
-  padding: 0.3rem 0.9rem;
+  font-size: 1em;
+  padding: 0.2em 0.6em;
   border: 2px solid var(--line);
   background: #fff;
   color: var(--ink);
   cursor: pointer;
 }
 
-.chip:hover {
-  background: var(--panel);
+.chip:hover[data-value="golden"] { 
+  background: var(--golden); 
+  color: var(--ink); 
+}
+.chip:hover[data-value="silver"] { 
+  background: var(--silver);  
+  color: var(--ink); 
+}
+.chip:hover[data-value="bronze"] { 
+  background: var(--bronze);  
+  color: var(--ink); 
+}
+.chip:hover[data-value="modern"] { 
+  background: var(--modern);  
+  color: var(--ink); 
+}
+
+.chip:hover[data-value="marvel"] { 
+  background: var(--marvel);  
+  color: #fff; 
+}
+.chip:hover[data-value="dc"]     { 
+  background: var(--dc);          
+  color: #fff; 
 }
 
 .chip.active {
@@ -143,10 +160,12 @@ body {
 
 .chip.active[data-value="marvel"] { 
   background: var(--marvel);  
-  color: #fff; }
+  color: #fff; 
+}
 .chip.active[data-value="dc"]     { 
   background: var(--dc);          
-  color: #fff; }
+  color: #fff; 
+}
 
 .chip:focus-visible {
   outline: 3px solid var(--dc);
@@ -217,6 +236,18 @@ body {
   background: rgba(255, 255, 255, 0.5);
 }
 
+/* Window too narrow for one line of filters, even at 9px: let the bar wrap */
+@media (max-width: 1120px) {
+  .filters,
+  .filter-group {
+    flex-wrap: wrap;
+  }
+
+  .filters {
+    gap: 0.5em 1.35em;
+  }
+}
+
 /* Stack everything on narrow screens */
 @media (max-width: 900px) {
   body {
@@ -240,6 +271,7 @@ body {
 
   .topbar {
     flex-direction: column;
+    align-items: stretch;
   }
 }
 
