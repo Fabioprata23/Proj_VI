@@ -49,9 +49,6 @@
     if (!data) return;
     const era = lc(filters.era);
     //fitDashboardHeight();
-    // The timeline ignores the era filter (it zooms instead), other filters still apply
-    //drawIdiom1(applyFilters(data.characters, { ...filters, era: "all" }), era, lc(filters.sex));
-    //drawIdiom2(applyFilters(data.characters, filters), era);
     drawIdiom1(applyFilters(data.characters, { ...filters, era: "all", sex: "all" }), era, lc(filters.sex));
     drawIdiom2(applyFilters(data.characters, filters), era, lc(filters.sex));
   }
@@ -90,10 +87,10 @@
     if (!kind) text.attr("font-weight", 700).attr("fill", color);
   }
 
-  // ---------- Idiom 1 (T1): Gender share of debuts per publisher ----------
+  // ---------- Idiom 1 (T1): Gender share or debut counts per publisher ----------
 
-  // Per publisher and year: Gender share over the 5-year window
-  function genderShare(rows, years,sex) {
+  // Per publisher and year: Gender share or debut counts over the 5-year window
+  function genderShare(rows, years, sex) {
     const byPub = d3.rollup(rows, (v) => v.length,
       (d) => lc(d.publisher), (d) => d.first_year, (d) => lc(d.sex));
     return PUBS.filter((p) => byPub.has(p)).map((pub) => {
@@ -105,8 +102,14 @@
           women += count(k, "female");
           men += count(k, "male");
         }
-        const kept = sex === "male" ? men : women;
-        return { year, women, men, share: women + men >= MIN_DEBUTS ? kept / (women + men) : null };
+        const total = women + men;
+        if (sex === "all") {
+          const val = total >= MIN_DEBUTS ? total / (2 * WINDOW + 1) : null;
+          return { year, women, men, value: val };
+        } else {
+          const kept = sex === "male" ? men : women;
+          return { year, women, men, share: total >= MIN_DEBUTS ? kept / total : null };
+        }
       });
       return { pub, values };
     });
@@ -124,20 +127,22 @@
 
   // Tween for one line: redraws it at every frame, moving from its previous
   // state (scales + values, stored on the <path>) to the new one.
-  function lineTween(x, y) {
+  function lineTween(x, y, isAll) {
     return function (s) {
+      const key = isAll ? "value" : "share";
       const old = this._state || { values: s.values, x: x.domain(), y: y.domain() };
       this._state = { values: s.values, x: x.domain(), y: y.domain() };
       const ix = d3.interpolate(old.x, x.domain());
       const iy = d3.interpolate(old.y, y.domain());
-      const oldShare = new Map(old.values.map((v) => [v.year, v.share]));
+      const oldValue = new Map(old.values.map((v) => [v.year, v[key]]));
       return (k) => {
         const xk = x.copy().domain(ix(k)), yk = y.copy().domain(iy(k));
-        return d3.line().defined((d) => d.share != null)
+        return d3.line().defined((d) => d[key] != null)
           .x((d) => xk(d.year))
           .y((d) => {
-            const a = oldShare.get(d.year);
-            return yk(a == null ? d.share : a + (d.share - a) * k);
+            const a = oldValue.get(d.year);
+            const cur = d[key];
+            return yk(a == null ? cur : a + (cur - a) * k);
           })(s.values);
       };
     };
@@ -156,6 +161,13 @@
     const ui = { svg, W, H, m };
 
     ui.title = svg.append("text").attr("class", "chart-title").attr("x",6).attr("y",16);
+    ui.yLabel = svg.append("text")
+      .attr("transform", "rotate(-90)")
+      .attr("x", -H / 2)
+      .attr("y", 15)
+      .attr("text-anchor", "middle")
+      .attr("font-size", 11)
+      .style("fill", "var(--muted)");
     ui.legend = svg.append("g");
     ui.xAxis = svg.append("g").attr("class", "axis").attr("transform", `translate(0,${H - m.bottom})`);
     ui.yAxis = svg.append("g").attr("class", "axis").attr("transform", `translate(${m.left},0)`);
@@ -176,7 +188,7 @@
       .style("fill", "var(--muted)").style("display", "none")
       .text("No characters match these filters");
 
-    return ui
+    return ui;
   }
 
   function drawIdiom1(rows, era, sex) {
@@ -187,9 +199,11 @@
     const { svg, m } = ui1;
     const t = svg.transition().duration(750).ease(d3.easeCubicInOut);
 
+    const isAllSex = (sex === "all");
+
     // empty case: hide the chart, show the message
     const sexed = rows.filter((d) => (lc(d.sex) === "male" || lc(d.sex) === "female") && d.first_year != null);
-    const parts = [ui1.title, ui1.legend, ui1.xAxis, ui1.yAxis, ui1.eras, ui1.lines, ui1.peaks, ui1.hover];
+    const parts = [ui1.title, ui1.yLabel, ui1.legend, ui1.xAxis, ui1.yAxis, ui1.eras, ui1.lines, ui1.peaks, ui1.hover];
     parts.forEach((p) => p.style("display", sexed.length ? null : "none"));
     ui1.empty.style("display", sexed.length ? "none" : null);
     if (!sexed.length) return;
@@ -207,16 +221,23 @@
     const v1 = zoom ? zoom.end : y1;
     const visible = (v) => v.year >= v0 && v.year <= v1;
     const x = d3.scaleLinear().domain([v0, Math.max(v1, v0 + 1)]).range([m.left, W - m.right]);
-    const maxShare = d3.max(series, (s) => d3.max(s.values, (v) => v.share)) || 0;
-    const y = d3.scaleLinear().domain([0, Math.max(0.5, maxShare)]).nice().range([H - m.bottom, m.top]);
+    
+    const maxValue = d3.max(series, (s) => d3.max(s.values, (v) => isAllSex ? v.value : v.share)) || 0;
+    const y = d3.scaleLinear().domain([0, isAllSex ? Math.max(10, maxValue) : Math.max(0.5, maxValue)]).nice().range([H - m.bottom, m.top]);
     const yearAt = (event) => Math.max(v0, Math.min(v1, Math.round(x.invert(d3.pointer(event)[0]))));
 
     // Axes: drawn into the existing groups, animated
     ui1.xAxis.transition(t).call(d3.axisBottom(x).ticks(Math.min(8, v1 - v0)).tickFormat(d3.format("d")));
-    ui1.yAxis.transition(t).call(d3.axisLeft(y).ticks(5).tickFormat(pct));
+    ui1.yAxis.transition(t).call(d3.axisLeft(y).ticks(5).tickFormat(isAllSex ? num : pct));
 
-    // Title and legend
-    ui1.title.text(`${sex === "male" ? "Male" : "Female"} share of debuts (5-year rolling average)`);
+    // Title, y-axis label, and legend
+    if (isAllSex) {
+      ui1.title.text("Debut count per year (5-year rolling average)");
+    } else {
+      ui1.title.text(`${sex === "male" ? "Male" : "Female"} share of debuts (5-year rolling average)`);
+    }
+    ui1.yLabel.text(isAllSex ? "number of debuts" : "share of debuts");
+
     ui1.legend.selectAll("*").remove();
     series.forEach((s, i) => legendItem(ui1.legend, W - 160 + i * 80, 16, PUB_COLOR[s.pub], PUB_LABEL[s.pub], "line"));
 
@@ -247,7 +268,7 @@
       )
       .transition(t)
       .attr("opacity", 1)
-      .attrTween("d", lineTween(x, y));
+      .attrTween("d", lineTween(x, y, isAllSex));
 
     // (I) Hover: permanent elements, handlers re-attached on every render
     const hoverDots = ui1.focus.selectAll("circle").data(series, (s) => s.pub).join("circle").attr("r", 5)
@@ -266,13 +287,17 @@
 
         ui1.focus.style("display", null);
         ui1.guide.attr("x1", cx).attr("x2", cx);
-        hoverDots.style("display", (s) => (s.values[i].share == null ? "none" : null))
-          .attr("cx", cx).attr("cy", (s) => y(s.values[i].share || 0));
+        
+        const metricKey = isAllSex ? "value" : "share";
+        hoverDots.style("display", (s) => (s.values[i][metricKey] == null ? "none" : null))
+          .attr("cx", cx).attr("cy", (s) => y(s.values[i][metricKey] || 0));
 
         const lines = series.map((s) => {
           const v = s.values[i];
+          const val = v[metricKey];
+          const valStr = val == null ? "— (too few)" : (isAllSex ? num(Math.round(val)) + " debuts/yr" : pct(val));
           return `<span style="color:${PUB_COLOR[s.pub]}">●</span> <strong>${PUB_LABEL[s.pub]}</strong>: `
-            + (v.share == null ? "— (too few)" : pct(v.share))
+            + valStr
             + `<br><span style="color:var(--muted)">${period(yr)}: ${v.women} women · ${v.men} men</span>`;
         });
         showTooltip(`<strong>${yr}</strong><br>${lines.join("<br>")}`, event);
@@ -282,8 +307,9 @@
     // (J) Peaks: compute the positions first, then animate circles and labels.
     // Highest label first; the next one goes at least 14px lower so labels never overlap.
     const peaks = series.map((s) => {
-      const p = d3.greatest(s.values.filter((v) => v.share != null && visible(v)), (v) => v.share);
-      return p && { pub: s.pub, share: p.share, px: x(p.year), py: y(p.share) };
+      const metricKey = isAllSex ? "value" : "share";
+      const p = d3.greatest(s.values.filter((v) => v[metricKey] != null && visible(v)), (v) => v[metricKey]);
+      return p && { pub: s.pub, val: p[metricKey], px: x(p.year), py: y(p[metricKey]) };
     }).filter(Boolean).sort((a, b) => a.py - b.py);
 
     let nextY = m.top + 10;
@@ -308,9 +334,9 @@
     pk.select("text").attr("text-anchor", (p) => p.anchor)
       .transition(t).attr("x", (p) => p.px).attr("y", (p) => p.ly)
       .textTween(function (p) {
-        const i = d3.interpolate(this._share ?? p.share, p.share);
-        this._share = p.share;
-        return (k) => `Peak ${pct(i(k))}`;
+        const i = d3.interpolate(this._val ?? p.val, p.val);
+        this._val = p.val;
+        return (k) => `Peak ${isAllSex ? num(Math.round(i(k))) : pct(i(k))}`;
       });
   }
 
@@ -350,7 +376,7 @@
     return ui;
   }
 
-  function drawIdiom2(rows, era,sex) {
+  function drawIdiom2(rows, era, sex) {
     // Skeleton: built the first time, or again if the box changed size
     const node = document.querySelector("#idiom-2");
     const W = Math.max(320, node.clientWidth || 0), H = Math.max(260, node.clientHeight || 0);
@@ -375,8 +401,6 @@
 
     // Title and concentration subtitle
     const eraName = ERA_LABEL[era] || era;
-    //.text(isAll ? `Top ${N} most appearing debutants, all eras`
-      //: `Top ${N} most appearing debutants, ${eraName} Age`);
     const who = sex === "female" ? "female " : sex === "male" ? "male " : "";
     ui2.title.text(isAll ? `Top ${N} most appearing ${who}debutants, all eras`
       : `Top ${N} most appearing ${who}debutants, ${eraName} Age`);
@@ -442,9 +466,11 @@
       )
       .transition(t)
       .attr("x", (d) => x(d.appearances) + 4).attr("y", midY).attr("opacity", 1);
+    
     highlightIdiom2(getHighlight());
   }
-    function highlightIdiom2(id) {
+
+  function highlightIdiom2(id) {
     if (!ui2) return;
     const bars = ui2.bars.selectAll("rect.bar");
     const inTop = id != null && !bars.filter((d) => d.id === id).empty();
