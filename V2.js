@@ -38,13 +38,7 @@
   const num = d3.format(",");
   const signed = d3.format("+.2f");
 
-  // ---------- Small style for the stat selector only ----------
-  const style = document.createElement("style");
-  style.textContent = `
-    .v2-controls { display: flex; flex-wrap: nowrap; white-space: nowrap; align-items: center; gap: 0.6rem; margin: -0.25rem 0 0.6rem; font-weight: 600; font-size: 0.85rem; }
-    .v2-controls select { font: inherit; font-weight: 700; padding: 0.2rem 0.5rem; border: 2px solid var(--line); background: #fff; color: var(--ink); cursor: pointer; }
-  `;
-  document.head.appendChild(style);
+  
 
   // ---------- State ----------
   let data = null;
@@ -58,12 +52,13 @@
 
   // ---------- Stat selector (above the idioms, drives both charts) ----------
   const panel = document.querySelector("#idiom-3").closest(".panel");
-  const controls = document.createElement("div");
+  const controls = document.createElement("span");
   controls.className = "v2-controls";
   controls.innerHTML = `
     <label for="v2-stat">Power stat</label>
     <select id="v2-stat" title="Changes both charts">${STATS.map(([k, l]) => `<option value="${k}">${l}</option>`).join("")}</select>`;
-  panel.insertBefore(controls, panel.querySelector(".panel-body"));
+  panel.querySelector("h2").appendChild(controls);
+
   const select = controls.querySelector("select");
   select.value = stat;
   select.addEventListener("change", () => {
