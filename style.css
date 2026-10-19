@@ -9,15 +9,15 @@
 
 :root {
   /* Publisher colors (every chart) */
-  /*--dc: #2f6fdb;
-  --marvel: #e0464e;*/
   --dc: #3d6a9e;      
   --marvel: #b8504b;
-  /* Era colors (light = oldest, dark = newest) */
+  
+  /* Era colors */
   --golden: #dcb05a;
-  --silver: #94b866;
-  --bronze: #5aa89a;  
-  --modern: #9d84c8;  
+  --silver: #94a3b8;  /* Sleek metallic silver */
+  --bronze: #b46a39;  /* Rich copper bronze */
+  --modern: #4f46e5;  /* Vibrant modern indigo */
+  
   --ink: #1b1d22;
   --muted: #6b7280;
   --paper: #fafaf7;
@@ -52,6 +52,19 @@ body {
   container-type: inline-size;
 }
 
+/* Brand wrapper for logos and title */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.brand-logo {
+  height: 3.4rem;
+  width: auto;
+  object-fit: contain;
+}
+
 .topbar h1 {
   margin: 0;
   font-size: 1.9rem;
@@ -70,12 +83,8 @@ body {
 }
 
 /* Filter bar */
-/* One line. Every size is in em of the bar's font size, and that font size
-   follows the window width (vw), so the whole bar shrinks with the window
-   instead of wrapping: 12px from 1400px wide, 9px at 1120px.
-   Below 1120px the bar wraps (see the media query at the end). */
 .filters {
-  flex: 0 1 auto; /* as wide as its content, no wider */
+  flex: 0 1 auto;
   display: flex;
   flex-wrap: nowrap;
   white-space: nowrap;
@@ -110,56 +119,39 @@ body {
   cursor: pointer;
 }
 
-.chip:hover[data-value="good"]{
+.chip:hover[data-value="good"],
+.chip:hover[data-value="neutral"],
+.chip:hover[data-value="bad"],
+.chip:hover[data-value="all"],
+.chip:hover[data-value="female"],
+.chip:hover[data-value="male"],
+.chip:hover[data-value="both"] {
   background: var(--ink);
   color: var(--paper);
 }
-.chip:hover[data-value="neutral"]{
-  background: var(--ink);
-  color: var(--paper);
-}
-.chip:hover[data-value="bad"]{
-  background: var(--ink);
-  color: var(--paper);
-}
-.chip:hover[data-value="all"]{
-  background: var(--ink);
-  color: var(--paper);
-}
-.chip:hover[data-value="female"]{
-  background: var(--ink);
-  color: var(--paper);
-}
-.chip:hover[data-value="male"]{
-  background: var(--ink);
-  color: var(--paper);
-}
-.chip:hover[data-value="both"]{
-  background: var(--ink);
-  color: var(--paper);
-}
+
 .chip:hover[data-value="golden"] { 
   background: var(--golden); 
   color: var(--ink); 
 }
 .chip:hover[data-value="silver"] { 
   background: var(--silver);  
-  color: var(--ink); 
+  color: #fff; 
 }
 .chip:hover[data-value="bronze"] { 
   background: var(--bronze);  
-  color: var(--ink); 
+  color: #fff; 
 }
 .chip:hover[data-value="modern"] { 
   background: var(--modern);  
-  color: var(--ink); 
+  color: #fff; 
 }
 
 .chip:hover[data-value="marvel"] { 
   background: var(--marvel);  
   color: #fff; 
 }
-.chip:hover[data-value="dc"]     { 
+.chip:hover[data-value="dc"] { 
   background: var(--dc);          
   color: #fff; 
 }
@@ -175,22 +167,22 @@ body {
 }
 .chip.active[data-value="silver"] { 
   background: var(--silver);  
-  color: var(--ink); 
+  color: #fff; 
 }
 .chip.active[data-value="bronze"] { 
   background: var(--bronze);  
-  color: var(--ink); 
+  color: #fff; 
 }
 .chip.active[data-value="modern"] { 
   background: var(--modern);  
-  color: var(--ink); 
+  color: #fff; 
 }
 
 .chip.active[data-value="marvel"] { 
   background: var(--marvel);  
   color: #fff; 
 }
-.chip.active[data-value="dc"]     { 
+.chip.active[data-value="dc"] { 
   background: var(--dc);          
   color: #fff; 
 }
@@ -200,11 +192,7 @@ body {
   outline-offset: 2px;
 }
 
-/*
-  Layout, like the sketch:
-  V1 wide top-left, V2 tall on the right,
-  V3 wide top-left below V1.
-*/
+/* Layout Grid */
 .grid {
   display: grid;
   grid-template-columns: 1.15fr 1fr 1.05fr;
@@ -264,7 +252,7 @@ body {
   background: rgba(255, 255, 255, 0.5);
 }
 
-/* Window too narrow for one line of filters, even at 9px: let the bar wrap */
+/* Media Queries */
 @media (max-width: 1120px) {
   .filters,
   .filter-group {
@@ -276,7 +264,6 @@ body {
   }
 }
 
-/* Stack everything on narrow screens */
 @media (max-width: 900px) {
   body {
     padding: 1rem;
@@ -290,7 +277,7 @@ body {
     grid-template-areas:
       "v1"
       "v2"
-      "v3"
+      "v3";
   }
 
   .panel-body.two-col {
@@ -300,6 +287,11 @@ body {
   .topbar {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .brand {
+    justify-content: center;
+    text-align: center;
   }
 }
 
@@ -362,8 +354,6 @@ body {
 .view-nav a:hover { background: var(--panel); }
 
 /* ---- Charts ---- */
-
-/* A box that holds a chart: white frame, fixed height, the SVG fills the box */
 .idiom.drawn {
   display: block;
   position: relative;
@@ -374,7 +364,6 @@ body {
   border: 2px solid var(--line);
 }
 
-/* Sketch images (CPII) standing in for idioms not implemented yet */
 .idiom.shot {
   padding: 0;
   background: #fff;
@@ -433,7 +422,8 @@ body {
 .tooltip.visible {
   opacity: 1;
 }
-/* V3 team menu, next to the panel title. Same look as V2's "Power stat" (.v2-controls in V2.js) */
+
+/* V2 and V3 controls */
 .panel.v2 h2,
 .panel.v3 h2 {
   display: flex;
