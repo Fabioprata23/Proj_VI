@@ -17,6 +17,8 @@
   const PUBS = ["marvel", "dc"];
   const PUB_LABEL = { marvel: "Marvel", dc: "DC" };
   const PUB_COLOR = { marvel: cssVar("--marvel", "#b8504b"), dc: cssVar("--dc", "#3d6a9e") };
+  // Text written on an era colour: dark on the light colours, white on the dark ones
+  const ERA_TEXT = { golden: "#1b1d22", silver: "#1b1d22", bronze: "#fff", modern: "#fff" };
 
   const WINDOW = 2;     // rolling average over ±2 years = 5 years
   const MIN_DEBUTS = 5; // no value when a publisher has fewer debuts in the 5-year window
@@ -250,13 +252,37 @@
       .attr("x1", (r) => x(r.start)).attr("x2", (r) => x(r.start))
       .attr("opacity", (r) => (r.start > v0 && r.start <= v1 ? 1 : 0));
 
-    ui1.eras.selectAll("text").data(ranges, (r) => r.era)
-      .join((enter) => enter.append("text").attr("y", m.top - 12).attr("text-anchor", "middle")
-        .attr("font-size", 11).style("fill", "var(--muted)").text((r) => ERA_LABEL[r.era])
-        .attr("x", (r) => x((r.start + r.end) / 2)))
+    // Era names written on their own colour (same colours as the Era chips of the menu)
+    ui1.eras.selectAll("g.era-tag").data(ranges, (r) => r.era)
+      .join((enter) => {
+        const g = enter.append("g").attr("class", "era-tag")
+          .attr("transform", (r) => `translate(${x((r.start + r.end) / 2)},${m.top - 12})`);
+        const text = g.append("text").attr("text-anchor", "middle").attr("font-size", 11)
+          .attr("font-weight", 700).attr("fill", (r) => ERA_TEXT[r.era]).text((r) => ERA_LABEL[r.era]);
+        // Coloured box behind the name, as wide as the name
+        g.insert("rect", "text").attr("y", -12).attr("height", 16).attr("rx", 3)
+          .attr("fill", (r) => ERA_COLOR[r.era]).attr("stroke", "#1b1d22").attr("stroke-width", 1);
+        g.each(function () {
+          const w = this.querySelector("text").getComputedTextLength() + 12;
+          d3.select(this).select("rect").attr("x", -w / 2).attr("width", w);
+        });
+        return g;
+      })
+      // Click a tag: filter every view on this era; click it again: back to All
+      .style("cursor", "pointer")
+      .style("pointer-events", (r) => (!zoom || r.era === zoom.era ? null : "none"))
+      .on("click", (event, r) => toggleEra(r.era))
+      .on("mouseenter", function () { d3.select(this).select("rect").attr("stroke-width", 2.5); })
+      .on("mouseleave", function () { d3.select(this).select("rect").attr("stroke-width", 1); })
+      .call((g) => g.selectAll("title").data((r) => [r]).join("title")
+        .text((r) => (zoom ? "Click to show all eras" : `Click to show only the ${ERA_LABEL[r.era]} Age`)))
       .transition(t)
-      .attr("x", (r) => x((r.start + r.end) / 2))
-      .attr("opacity", zoom ? 0 : 1);
+      // Zoomed on an era: only its tag stays, in the middle of the chart
+      .attr("transform", (r) => {
+        const cx = zoom ? (m.left + W - m.right) / 2 : x((r.start + r.end) / 2);
+        return `translate(${cx},${m.top - 12})`;
+      })
+      .attr("opacity", (r) => (!zoom || r.era === zoom.era ? 1 : 0));
 
     // (H) Lines: whole timeline (the clip hides what is outside), animated
     ui1.lines.selectAll("path.share").data(series, (s) => s.pub)
@@ -368,19 +394,19 @@
 
   function setupIdiom2() {
     const { svg, W, H } = makeSvg("#idiom-2");
-    const m = { top: 54, right: 24, bottom: 72, left: 140 }; // Adjusted right margin since values are removed
+    const m = { top: 54, right: 24, bottom: 40, left: 140 }; // bottom: axis + "appearances" only (no era legend)
     const ui = { svg, W, H, m };
 
     ui.title    = svg.append("text").attr("class", "chart-title").attr("x", 8).attr("y", 20);
     ui.subtitle = svg.append("text").attr("x", 8).attr("y", 39).attr("font-size", 11).attr("fill", "#374151");
     ui.xAxis    = svg.append("g").attr("class", "axis").attr("transform", `translate(0,${H - m.bottom})`);
-    ui.xLabel   = svg.append("text").attr("x", W - m.right).attr("y", H - m.bottom + 34).attr("text-anchor", "end")
+    ui.xLabel   = svg.append("text").attr("x", W - m.right).attr("y", H - 4).attr("text-anchor", "end")
       .attr("font-size", 11).style("fill", "var(--muted)").text("appearances");
     ui.bars     = svg.append("g");
     ui.names    = svg.append("g");
     ui.legend   = svg.append("g");
     // Era legend (bar colors), the same in every era: drawn once
-    ERAS.forEach((e, i) => legendItem(ui.legend, 40 + i * 90, H - 22, ERA_COLOR[e], ERA_LABEL[e], "pill"));
+    // No era legend: the Era chips of the menu and the era tags of the line chart give the colours
 
     // "No data" message, hidden until needed
     ui.empty    = svg.append("text").attr("x", W / 2).attr("y", H / 2).attr("text-anchor", "middle")

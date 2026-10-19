@@ -31,6 +31,8 @@
     bronze: cssVar("--bronze", "#5aa89a"), modern: cssVar("--modern", "#9d84c8"),
   });
   const INK = () => cssVar("--ink", "#1b1d22");
+  // Text written on an era colour: dark on the light colours, white on the dark ones
+  const ERA_TEXT = { golden: "#1b1d22", silver: "#1b1d22", bronze: "#fff", modern: "#fff" };
   const MUTED = () => cssVar("--muted", "#6b7280");
 
   const lc = (v) => (v == null ? "" : String(v).toLowerCase());
@@ -183,13 +185,7 @@
     const w = (label, extra) => extra + label.length * 6.2 + 12;
     const items = [];
     // No Marvel / DC entries: the publisher chips of the filter bar give the colours
-    ALIGNMENTS.forEach((a) => items.push({
-      width: w(ALIGN_LABEL[a], 14),
-      draw: (g, x, y) => {
-        g.append("path").attr("d", symbolPath(a, 60)).attr("fill", MUTED()).attr("transform", `translate(${x + 5},${y - 4})`);
-        g.append("text").attr("x", x + 14).attr("y", y).attr("font-size", 11).attr("fill", INK()).text(ALIGN_LABEL[a]);
-      },
-    }));
+    // No Good / Neutral / Bad entries: the Alignment chips of the menu show the same shapes (▲ ● ▼)
     // Characters with no alignment in the data: hollow diamond (see SHAPE.unknown)
     items.push({
       width: w(ALIGN_LABEL.unknown, 14),
@@ -425,7 +421,7 @@
 
     const PC = pubColor(), EC = eraColor();
     const compact = H < 260;
-    const m = { top: compact ? 48 : 62, right: 58, bottom: compact ? 36 : 38, left: 78 };
+    const m = { top: 32, right: 58, bottom: compact ? 36 : 38, left: 78 };
     if (!rows.length) {
       rangeStore.last = null;
       showMessage(L, svg, W, H, "No characters match these filters");
@@ -449,12 +445,7 @@
     L.chrome.append("text").attr("x", W - m.right).attr("y", H - 6).attr("text-anchor", "end")
       .attr("font-size", 11).attr("fill", MUTED()).text(statLabel());
     // No Marvel / DC labels: the publisher chips of the filter bar give the colours
-    L.chrome.append("text").attr("x", 8).attr("y", 39).attr("font-size", 10.5).attr("fill", MUTED())
-      .text("bar = middle 50% · big dot = median");
-    if (!compact) {
-      L.chrome.append("text").attr("x", 8).attr("y", 54).attr("font-size", 10.5).attr("fill", MUTED())
-        .text("small dots = lowest and highest · click an era to filter");
-    }
+    // No reading key under the title (bar / median / dots): the tooltip of each row explains the values
 
     // Era rows: baseline and label (click the label to filter every view on this era; click again to clear)
     const currentEra = lc(filters.era);
@@ -464,14 +455,15 @@
         .attr("stroke", "#9ca3af");
       const labelG = L.base.append("g").style("cursor", "pointer").on("click", () => toggleEra(era));
       labelG.append("title").text("Click to filter by this era");
-      labelG.append("rect").attr("x", 8).attr("y", top + h / 2 - 7).attr("width", 6).attr("height", 14)
-        .attr("rx", 2).attr("fill", EC[era]);
-      labelG.append("text").attr("x", 20).attr("y", top + h / 2 + 4).attr("font-size", 12)
-        .attr("font-weight", currentEra === era ? 800 : 600).attr("fill", INK()).text(ERA_LABEL[era]);
-      if (currentEra === era) {
-        labelG.append("rect").attr("x", 5).attr("y", top + h / 2 - 11).attr("width", m.left - 12).attr("height", 22)
-          .attr("rx", 3).attr("fill", "none").attr("stroke", EC[era]).attr("stroke-width", 2);
-      }
+      // Era name written on its own colour (same colours as the Era chips of the menu).
+      // The selected era gets a thicker black border.
+      const on = currentEra === era;
+      const boxW = m.left - 14;
+      labelG.append("rect").attr("x", 6).attr("y", top + h / 2 - 10).attr("width", boxW).attr("height", 20)
+        .attr("rx", 3).attr("fill", EC[era]).attr("stroke", INK()).attr("stroke-width", on ? 2.5 : 1);
+      labelG.append("text").attr("x", 6 + boxW / 2).attr("y", top + h / 2 + 4).attr("text-anchor", "middle")
+        .attr("font-size", 12).attr("font-weight", on ? 800 : 700)
+        .attr("fill", ERA_TEXT[era]).text(ERA_LABEL[era]);
     });
 
     // One entry per era and publisher with characters
@@ -491,7 +483,10 @@
 
     // Marks, in V1's style: they grow out of the median, slide when the stat changes, and shrink back when they leave
     const med = (d) => x(d.med);
-    joinMarks(L.marks, "line", "whisker", groups, (d) => d.key, t, {
+    // Groups with 4+ characters: whisker, middle-50% bar, lowest/highest dots and median.
+    // Groups with fewer than 4: only one dot per character (a median of 2 values is not a real character).
+    const big = groups.filter((d) => d.n >= 4);
+    joinMarks(L.marks, "line", "whisker", big, (d) => d.key, t, {
       setup: (sel) => sel.attr("stroke", (d) => d.color).attr("stroke-opacity", 0.45).attr("stroke-width", 1.5),
       place: (sel) => sel.attr("x1", (d) => x(d.lo)).attr("x2", (d) => x(d.hi)).attr("y1", (d) => d.cy).attr("y2", (d) => d.cy),
       start: (sel) => sel.attr("x1", med).attr("x2", med).attr("y1", (d) => d.cy).attr("y2", (d) => d.cy),
@@ -515,10 +510,11 @@
     };
     const few = groups.filter((d) => d.n < 4).flatMap((d) => d.values.map((v, i) => ({ key: `${d.key}-v${i}`, v, med: d.med, cy: d.cy, color: d.color })));
     joinMarks(L.marks, "circle", "few", few, (d) => d.key, t, {
-      ...dotOpts, setup: (sel) => sel.attr("r", 3.5).attr("fill", (d) => d.color).attr("fill-opacity", 0.55),
+      ...dotOpts, setup: (sel) => sel.attr("r", 5).attr("fill", (d) => d.color).attr("fill-opacity", 0.85)
+        .attr("stroke", "#fff").attr("stroke-width", 1.2),
     });
 
-    const ends = groups.flatMap((d) => [
+    const ends = big.flatMap((d) => [
       { key: `${d.key}-lo`, v: d.lo, med: d.med, cy: d.cy, color: d.color },
       { key: `${d.key}-hi`, v: d.hi, med: d.med, cy: d.cy, color: d.color },
     ]);
@@ -526,7 +522,7 @@
       ...dotOpts, setup: (sel) => sel.attr("r", 3.5).attr("fill", (d) => d.color).attr("fill-opacity", 0.65),
     });
 
-    joinMarks(L.marks, "circle", "median", groups, (d) => d.key, t, {
+    joinMarks(L.marks, "circle", "median", big, (d) => d.key, t, {
       setup: (sel) => sel.attr("r", 5.5).attr("fill", (d) => d.color).attr("stroke", "#fff").attr("stroke-width", 1.5),
       place: (sel) => sel.attr("cx", (d) => x(d.med)).attr("cy", (d) => d.cy),
     });
@@ -548,9 +544,11 @@
       .attr("fill", "transparent")
       .on("mousemove", (event, d) => showTooltip(
         `<strong>${PUB_LABEL[d.pub]} · ${ERA_LABEL[d.era]}</strong><br>n = ${d.n} characters` +
-        `<br>Median ${statLabel().toLowerCase()}: ${d3.format(".0f")(d.med)}` +
-        `<br>Middle 50%: ${d3.format(".0f")(d.q1)} to ${d3.format(".0f")(d.q3)}` +
-        `<br>Lowest to highest: ${d.lo} to ${d.hi}`, event))
+        (d.n < 4
+          ? `<br>Too few for a median: ${statLabel().toLowerCase()} = ${d.values.join(", ")}`
+          : `<br>Median ${statLabel().toLowerCase()}: ${d3.format(".0f")(d.med)}` +
+            `<br>Middle 50%: ${d3.format(".0f")(d.q1)} to ${d3.format(".0f")(d.q3)}` +
+            `<br>Lowest to highest: ${d.lo} to ${d.hi}`), event))
       .on("mouseleave", hideTooltip);
 
     rangeStore.last = { L, x, rows, groups };
