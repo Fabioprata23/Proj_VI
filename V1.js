@@ -143,7 +143,7 @@
             const a = oldValue.get(d.year);
             const cur = d[key];
             return yk(a == null ? cur : a + (cur - a) * k);
-          })(s.values);
+          })(s.values) || ""; // no point to draw: empty path instead of "null"
       };
     };
   }
@@ -152,7 +152,7 @@
 
   function setupIdiom1(){
     const { svg, W, H } = makeSvg("#idiom-1");
-    const m = { top: 58, right: 24, bottom: 40, left: 50 };
+    const m = { top: 58, right: 24, bottom: 40, left: 66 }; // left: room for "100%" + the axis title
 
     svg.append("clipPath").attr("id","clip-idiom1").append("rect")
       .attr("x", m.left).attr("y",0)
@@ -164,7 +164,7 @@
     ui.yLabel = svg.append("text")
       .attr("transform", "rotate(-90)")
       .attr("x", -H / 2)
-      .attr("y", 15)
+      .attr("y", 14)
       .attr("text-anchor", "middle")
       .attr("font-size", 11)
       .style("fill", "var(--muted)");
@@ -317,6 +317,8 @@
       p.ly = Math.max(p.py - 10, nextY);
       nextY = p.ly + 14;
       p.anchor = p.px > W - m.right - 40 ? "end" : p.px < m.left + 40 ? "start" : "middle";
+      // Labels at the edges move away from the point, so they do not touch the axis
+      p.lx = p.anchor === "start" ? p.px + 8 : p.anchor === "end" ? p.px - 8 : p.px;
     });
 
     const pk = ui1.peaks.selectAll("g.peak").data(peaks, (p) => p.pub)
@@ -326,13 +328,13 @@
           .attr("stroke", (p) => PUB_COLOR[p.pub]).attr("cx", (p) => p.px).attr("cy", (p) => p.py);
         g.append("text").attr("font-size", 11).attr("font-weight", 700)
           .attr("fill", (p) => PUB_COLOR[p.pub]).attr("stroke", "#fff").attr("stroke-width", 3)
-          .attr("paint-order", "stroke").attr("x", (p) => p.px).attr("y", (p) => p.ly);
+          .attr("paint-order", "stroke").attr("x", (p) => p.lx).attr("y", (p) => p.ly);
         return g;
       });
 
     pk.select("circle").transition(t).attr("cx", (p) => p.px).attr("cy", (p) => p.py);
     pk.select("text").attr("text-anchor", (p) => p.anchor)
-      .transition(t).attr("x", (p) => p.px).attr("y", (p) => p.ly)
+      .transition(t).attr("x", (p) => p.lx).attr("y", (p) => p.ly)
       .textTween(function (p) {
         const i = d3.interpolate(this._val ?? p.val, p.val);
         this._val = p.val;
@@ -341,6 +343,19 @@
   }
 
   // ---------- Idiom 2 (T4): most appearing debutants + concentration ----------
+
+  // Writes a name in a <text>; if it is wider than maxW, cuts it and adds "…"
+  // (the full name stays in the tooltip of the bar)
+  function fitName(el, name, maxW) {
+    el.textContent = name;
+    if (el.getComputedTextLength() <= maxW) return;
+    let n = name.length;
+    while (n > 3) {
+      n--;
+      el.textContent = name.slice(0, n).trim() + "…";
+      if (el.getComputedTextLength() <= maxW) return;
+    }
+  }
 
   // Share of a group's appearances held by its 10 most-appearing characters
   function top10Share(list) {
@@ -455,6 +470,7 @@
         (update) => update,
         (exit) => exit.transition(t).attr("opacity", 0).remove()
       )
+      .each(function (d) { fitName(this, shortName(d.name), m.left - 10); })
       .transition(t)
       .attr("y", midY).attr("opacity", 1);
     
