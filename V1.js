@@ -10,9 +10,9 @@
   const cssVar = (name, fallback) => css.getPropertyValue(name).trim() || fallback;
   const ERA_COLOR = {
     golden: cssVar("--golden", "#dcb05a"),
-    silver: cssVar("--silver", "#94b866"),
-    bronze: cssVar("--bronze", "#5aa89a"),
-    modern: cssVar("--modern", "#9d84c8")
+    silver: cssVar("--silver", "#94a3b8"),
+    bronze: cssVar("--bronze", "#b46a39"),
+    modern: cssVar("--modern", "#4f46e5")
   };
   const PUBS = ["marvel", "dc"];
   const PUB_LABEL = { marvel: "Marvel", dc: "DC" };
@@ -353,7 +353,7 @@
 
   function setupIdiom2() {
     const { svg, W, H } = makeSvg("#idiom-2");
-    const m = { top: 52, right: 56, bottom: 70, left: 140 };
+    const m = { top: 52, right: 24, bottom: 70, left: 140 }; // Adjusted right margin since values are removed
     const ui = { svg, W, H, m };
 
     ui.title    = svg.append("text").attr("class", "chart-title").attr("x", 6).attr("y", 16);
@@ -363,7 +363,6 @@
       .attr("font-size", 11).style("fill", "var(--muted)").text("appearances");
     ui.bars     = svg.append("g");
     ui.names    = svg.append("g");
-    ui.vals     = svg.append("g");
     ui.legend   = svg.append("g");
     // Era legend (bar colors), the same in every era: drawn once
     ERAS.forEach((e, i) => legendItem(ui.legend, 40 + i * 90, H - 22, ERA_COLOR[e], ERA_LABEL[e], "pill"));
@@ -390,7 +389,7 @@
       .sort((a, b) => b.appearances - a.appearances).slice(0, N);
 
     // Empty case: hide the chart, show the message
-    const parts = [ui2.title, ui2.subtitle, ui2.xAxis, ui2.xLabel, ui2.bars, ui2.names, ui2.vals, ui2.legend];
+    const parts = [ui2.title, ui2.subtitle, ui2.xAxis, ui2.xLabel, ui2.bars, ui2.names, ui2.legend];
     parts.forEach((p) => p.style("display", top.length ? null : "none"));
     ui2.empty.style("display", top.length ? "none" : null);
     if (!top.length) return;
@@ -425,7 +424,7 @@
 
     ui2.xAxis.transition(t).call(d3.axisBottom(x).ticks(5));
 
-    // Bars, names and values, keyed by character: a character still in the
+    // Bars and names, keyed by character: a character still in the
     // ranking slides to its new rank, a new one grows in, a removed one fades out.
     ui2.bars.selectAll("rect.bar").data(top, (d) => d.id)
       .join(
@@ -455,17 +454,6 @@
       )
       .transition(t)
       .attr("y", midY).attr("opacity", 1);
-
-    ui2.vals.selectAll("text.val").data(top, (d) => d.id)
-      .join(
-        (enter) => enter.append("text").attr("class", "val")
-          .attr("x", m.left + 4).attr("y", midY).attr("font-size", 10).style("fill", "var(--muted)")
-          .attr("opacity", 0).text((d) => num(d.appearances)),
-        (update) => update,
-        (exit) => exit.transition(t).attr("opacity", 0).remove()
-      )
-      .transition(t)
-      .attr("x", (d) => x(d.appearances) + 4).attr("y", midY).attr("opacity", 1);
     
     highlightIdiom2(getHighlight());
   }
@@ -478,7 +466,6 @@
     bars.attr("fill-opacity", dim)
       .attr("stroke", (d) => (inTop && d.id === id ? "var(--ink)" : null)).attr("stroke-width", 1.5);
     ui2.names.selectAll("text.name").attr("fill-opacity", dim);
-    ui2.vals.selectAll("text.val").attr("fill-opacity", dim);
   }
   onHighlight(highlightIdiom2);
 
