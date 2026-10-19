@@ -66,7 +66,7 @@
     const svg = box.append("svg").attr("width", W).attr("height", H)
       .attr("viewBox", `0 0 ${W} ${H}`).style("display", "block");
     const L = Object.fromEntries(layerNames.map((k) => [k, svg.append("g").attr("class", `layer-${k}`)]));
-    L.title.append("text").attr("class", "chart-title").attr("x", 6).attr("y", 16);
+    L.title.append("text").attr("class", "chart-title").attr("x", 8).attr("y", 20);
     Object.assign(store, { svg, L, W, H });
     return { svg, L, W, H, fresh: true };
   }
@@ -197,13 +197,13 @@
       ["title", "cols", "links", "nodes", "share", "labels", "focus", "message"]);
     const t = makeTransition(fresh);
     const move = (sel) => (t ? sel.transition(t) : sel);
-    const m = { top: 46, right: 6, bottom: 8, left: 6 };
+    const m = { top: 50, right: 6, bottom: 8, left: 6 };
 
     L.title.select("text")
       .text(graph.sel
         ? `${graph.sel.label}: ${num(graph.selSize)} of ${num(n)} characters` +
           (graph.sel.node ? " · click again to clear" : "")
-        : `${num(n)} characters · click a bar to follow its characters`);
+        : `${num(n)} characters · click a bar${W < 430 ? "" : " to follow its characters"}`);
 
     // Click on an empty area: clear the clicked node
     svg.on("click", (event) => { if (event.target === svg.node() && pickedNode) pickNode(pickedNode); });
@@ -238,7 +238,7 @@
     // Column titles, aligned with their nodes
     const cols = d3.groups(nodes, (d) => d.col).sort((a, b) => a[0] - b[0]);
     L.cols.selectAll("text").data(cols, ([c]) => c).join("text")
-      .attr("y", 36)
+      .attr("y", 40)
       .attr("text-anchor", ([c]) => (c === 0 ? "start" : c === last ? "end" : "middle"))
       .attr("font-size", 11).attr("font-weight", 700).attr("fill", MUTED)
       .text(([c]) => COLUMNS[c].label)
@@ -326,7 +326,7 @@
     L.focus.style("pointer-events", "none").selectAll("*").remove();
     if (id == null || !s) return;
     const d = s.rows.get(id);
-    const label = (text, italic) => L.focus.append("text").attr("x", s.W - 6).attr("y", 16)
+    const label = (text, italic) => L.focus.append("text").attr("x", s.W - 6).attr("y", 20)
       .attr("text-anchor", "end").attr("font-size", 11)
       .attr("font-weight", italic ? 400 : 700).attr("font-style", italic ? "italic" : null)
       .attr("fill", italic ? MUTED : INK).attr("stroke", "#fff").attr("stroke-width", 3)
@@ -407,7 +407,7 @@
     const t = makeTransition(fresh);
     const move = (sel) => (t ? sel.transition(t) : sel);
 
-    L.title.select("text").text("Shared members between the biggest teams");
+    L.title.select("text").text(W < 380 ? "Shared members, biggest teams" : "Shared members between the biggest teams");
     L.message.selectAll("*").remove();
     matrixStore.last = null;
 
@@ -430,7 +430,7 @@
     const maxShared = d3.max(cells.filter((c) => !c.diag), (c) => c.shared) || 1;
 
     // Geometry: cells as big as the box allows, at most 1.6 times wider than tall
-    const m = { top: 46, right: 8, bottom: 36 };
+    const m = { top: 44, right: 8, bottom: 36 };
     m.left = Math.min(130, W * 0.3);
     const cellH = Math.max(10, Math.min((H - m.top - m.bottom) / k, (W - m.left - m.right) / k));
     const cellW = Math.min((W - m.left - m.right) / k, cellH * 1.6);
@@ -450,12 +450,7 @@
     // Publisher blocks: label above, light grey frame around
     const blocks = d3.groups(teams.map((tm, i) => ({ ...tm, i })), (tm) => tm.pub)
       .map(([pub, ts]) => ({ pub, i0: ts[0].i, n: ts.length }));
-    L.pubs.selectAll("text").data(blocks, (b) => b.pub)
-      .join((enter) => enter.append("text").attr("y", 28).attr("x", (b) => pos(b.i0) + (b.n * cellW) / 2),
-        (update) => update, fadeOut(t))
-      .attr("text-anchor", "middle").attr("font-size", 11).attr("font-weight", 700)
-      .attr("fill", (b) => PUB_COLOR[b.pub]).text((b) => PUB_LABEL[b.pub])
-      .call((s) => move(s).attr("x", (b) => pos(b.i0) + (b.n * cellW) / 2));
+    // No "Marvel" / "DC" labels above the blocks: the cell colours and the filter chips say it
 
     // Cells
     const at = (c) => `translate(${pos(c.j)},${top(c.i)})`;
@@ -705,6 +700,9 @@
       graph = buildGraph(rows, null);
     }
     teamSelect.property("value", team);
+    // The menu takes the colour of the selected team's publisher (style.css)
+    teamSelect.classed("pub-marvel", !!team && teamIndex.pub.get(team) === "marvel")
+      .classed("pub-dc", !!team && teamIndex.pub.get(team) === "dc");
     fitSelect(teamSelect.node());
     drawSankey(graph, rows.length, rows);
     drawMatrix(rows);

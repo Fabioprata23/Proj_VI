@@ -130,15 +130,15 @@
       .attr("fill", MUTED()).text(text);
   }
 
-  const title = (layer, text) => layer.append("text").attr("class", "chart-title").attr("x", 8).attr("y", 18).text(text);
+  const title = (layer, text) => layer.append("text").attr("class", "chart-title").attr("x", 8).attr("y", 20).text(text);
 
   // Alignment -> marker shape: triangle up (good), circle (neutral), triangle down (bad), diamond (unknown)
   const triangleDown = {
     draw(context, size) {
       const y = Math.sqrt(size / (Math.sqrt(3) * 3));
-      context.moveTo(0, -y * 2);
-      context.lineTo(-Math.sqrt(3) * y, y);
-      context.lineTo(Math.sqrt(3) * y, y);
+      context.moveTo(0, y * 2);
+      context.lineTo(-Math.sqrt(3) * y, -y);
+      context.lineTo(Math.sqrt(3) * y, -y);
       context.closePath();
     },
   };
@@ -182,13 +182,7 @@
   function scatterLegendItems(PC, basicOnly) {
     const w = (label, extra) => extra + label.length * 6.2 + 12;
     const items = [];
-    PUBS.forEach((p) => items.push({
-      width: w(PUB_LABEL[p], 14),
-      draw: (g, x, y) => {
-        g.append("circle").attr("cx", x + 5).attr("cy", y - 4).attr("r", 5).attr("fill", PC[p]);
-        g.append("text").attr("x", x + 14).attr("y", y).attr("font-size", 11).attr("fill", INK()).text(PUB_LABEL[p]);
-      },
-    }));
+    // No Marvel / DC entries: the publisher chips of the filter bar give the colours
     ALIGNMENTS.forEach((a) => items.push({
       width: w(ALIGN_LABEL[a], 14),
       draw: (g, x, y) => {
@@ -196,6 +190,15 @@
         g.append("text").attr("x", x + 14).attr("y", y).attr("font-size", 11).attr("fill", INK()).text(ALIGN_LABEL[a]);
       },
     }));
+    // Characters with no alignment in the data: hollow diamond (see SHAPE.unknown)
+    items.push({
+      width: w(ALIGN_LABEL.unknown, 14),
+      draw: (g, x, y) => {
+        g.append("path").attr("d", symbolPath("unknown", 60)).attr("fill", "#fff")
+          .attr("stroke", MUTED()).attr("stroke-width", 1.5).attr("transform", `translate(${x + 5},${y - 4})`);
+        g.append("text").attr("x", x + 14).attr("y", y).attr("font-size", 11).attr("fill", INK()).text(ALIGN_LABEL.unknown);
+      },
+    });
     if (basicOnly) return items;
     items.push({
       width: w("fit (95% interval)", 30),
@@ -241,7 +244,7 @@
     const compact = H < 300;                                    // small box: fewer legend items
     const legend = H < 210 ? [] : layoutLegend(W, PC, compact); // very small box: no legend
     const legendRows = legend.length ? d3.max(legend, (it) => it.row) + 1 : 0;
-    const m = { top: 28 + legendRows * 17 + 6, right: 52, bottom: compact ? 38 : 40, left: 62 };
+    const m = { top: 32 + legendRows * 17 + 6, right: 52, bottom: compact ? 38 : 40, left: 62 };
     const plotH = H - m.top - m.bottom;
     const withApp = (d) => typeof d.appearances === "number" && d.appearances > 0;
     const allPts = all.filter(withApp);
@@ -286,7 +289,7 @@
         .text(plotH >= 200 ? "appearances (log scale)" : "appearances");
     }
     title(L.chrome, `Power vs popularity (${num(pts.length)} characters)`);
-    legend.forEach((it) => it.draw(L.chrome, it.x, 34 + it.row * 17));
+    legend.forEach((it) => it.draw(L.chrome, it.x, 39 + it.row * 17));
 
     // Fits per alignment (on the visible characters) and one overall fit (on all characters)
     const toXY = (d) => ({ x: d[stat], y: Math.log10(d.appearances) });
@@ -422,7 +425,7 @@
 
     const PC = pubColor(), EC = eraColor();
     const compact = H < 260;
-    const m = { top: compact ? 44 : 58, right: 58, bottom: compact ? 36 : 38, left: 78 };
+    const m = { top: compact ? 48 : 62, right: 58, bottom: compact ? 36 : 38, left: 78 };
     if (!rows.length) {
       rangeStore.last = null;
       showMessage(L, svg, W, H, "No characters match these filters");
@@ -445,14 +448,11 @@
     title(L.chrome, `${statLabel()} by era and publisher`);
     L.chrome.append("text").attr("x", W - m.right).attr("y", H - 6).attr("text-anchor", "end")
       .attr("font-size", 11).attr("fill", MUTED()).text(statLabel());
-    L.chrome.append("text").attr("x", 8).attr("y", 36).attr("font-size", 11).attr("font-weight", 700)
-      .attr("fill", PC.marvel).text("Marvel");
-    L.chrome.append("text").attr("x", 58).attr("y", 36).attr("font-size", 11).attr("font-weight", 700)
-      .attr("fill", PC.dc).text("DC");
-    L.chrome.append("text").attr("x", 84).attr("y", 36).attr("font-size", 10.5).attr("fill", MUTED())
+    // No Marvel / DC labels: the publisher chips of the filter bar give the colours
+    L.chrome.append("text").attr("x", 8).attr("y", 39).attr("font-size", 10.5).attr("fill", MUTED())
       .text("bar = middle 50% · big dot = median");
     if (!compact) {
-      L.chrome.append("text").attr("x", 8).attr("y", 51).attr("font-size", 10.5).attr("fill", MUTED())
+      L.chrome.append("text").attr("x", 8).attr("y", 54).attr("font-size", 10.5).attr("fill", MUTED())
         .text("small dots = lowest and highest · click an era to filter");
     }
 

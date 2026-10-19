@@ -152,7 +152,7 @@
 
   function setupIdiom1(){
     const { svg, W, H } = makeSvg("#idiom-1");
-    const m = { top: 56, right: 24, bottom: 44, left: 50};
+    const m = { top: 58, right: 24, bottom: 40, left: 50 };
 
     svg.append("clipPath").attr("id","clip-idiom1").append("rect")
       .attr("x", m.left).attr("y",0)
@@ -160,7 +160,7 @@
     
     const ui = { svg, W, H, m };
 
-    ui.title = svg.append("text").attr("class", "chart-title").attr("x",6).attr("y",16);
+    ui.title = svg.append("text").attr("class", "chart-title").attr("x", 8).attr("y", 20);
     ui.yLabel = svg.append("text")
       .attr("transform", "rotate(-90)")
       .attr("x", -H / 2)
@@ -232,14 +232,14 @@
 
     // Title, y-axis label, and legend
     if (isAllSex) {
-      ui1.title.text("Debut count per year (5-year rolling average)");
+      ui1.title.text(W < 400 ? "Debuts per year (5-yr avg)" : "Debut count per year (5-year rolling average)");
     } else {
-      ui1.title.text(`${sex === "male" ? "Male" : "Female"} share of debuts (5-year rolling average)`);
+      ui1.title.text(`${sex === "male" ? "Male" : "Female"} share of debuts (5-${W < 400 ? "yr avg" : "year rolling average"})`);
     }
     ui1.yLabel.text(isAllSex ? "number of debuts" : "share of debuts");
 
     ui1.legend.selectAll("*").remove();
-    series.forEach((s, i) => legendItem(ui1.legend, W - 160 + i * 80, 16, PUB_COLOR[s.pub], PUB_LABEL[s.pub], "line"));
+    // No Marvel / DC legend: the publisher chips of the filter bar give the colours
 
     // Era dividers (dashed) and era names (names only when not zoomed)
     ui1.eras.selectAll("line").data(ranges, (r) => r.era)
@@ -353,11 +353,11 @@
 
   function setupIdiom2() {
     const { svg, W, H } = makeSvg("#idiom-2");
-    const m = { top: 52, right: 24, bottom: 70, left: 140 }; // Adjusted right margin since values are removed
+    const m = { top: 54, right: 24, bottom: 72, left: 140 }; // Adjusted right margin since values are removed
     const ui = { svg, W, H, m };
 
-    ui.title    = svg.append("text").attr("class", "chart-title").attr("x", 6).attr("y", 16);
-    ui.subtitle = svg.append("text").attr("x", 6).attr("y", 34).attr("font-size", 11).attr("fill", "#374151");
+    ui.title    = svg.append("text").attr("class", "chart-title").attr("x", 8).attr("y", 20);
+    ui.subtitle = svg.append("text").attr("x", 8).attr("y", 39).attr("font-size", 11).attr("fill", "#374151");
     ui.xAxis    = svg.append("g").attr("class", "axis").attr("transform", `translate(0,${H - m.bottom})`);
     ui.xLabel   = svg.append("text").attr("x", W - m.right).attr("y", H - m.bottom + 34).attr("text-anchor", "end")
       .attr("font-size", 11).style("fill", "var(--muted)").text("appearances");
@@ -384,7 +384,8 @@
     const t = svg.transition().duration(750).ease(d3.easeCubicInOut);
 
     const isAll = era === "all";
-    const N = isAll ? 20 : 10;
+    // As many bars as fit with readable names (about 14 px per bar), at most 20
+    const N = isAll ? Math.max(8, Math.min(20, Math.floor((H - m.top - m.bottom) / 14))) : 10;
     const top = rows.filter((d) => d.appearances > 0)
       .sort((a, b) => b.appearances - a.appearances).slice(0, N);
 
@@ -401,15 +402,17 @@
     // Title and concentration subtitle
     const eraName = ERA_LABEL[era] || era;
     const who = sex === "female" ? "female " : sex === "male" ? "male " : "";
-    ui2.title.text(isAll ? `Top ${N} most appearing ${who}debutants, all eras`
-      : `Top ${N} most appearing ${who}debutants, ${eraName} Age`);
+    // Shorter title when the chart is narrow (phones), so it is not cut
+    const most = W < 380 ? "" : "most appearing ";
+    ui2.title.text(isAll ? `Top ${N} ${most}${who}debutants, all eras`
+      : `Top ${N} ${most}${who}debutants, ${eraName} Age`);
     let subtitle;
     if (isAll) {
       const parts = ERAS.map((e) => {
         const s = top10Share(rows.filter((d) => lc(d.era) === e));
         return s == null ? null : `${ERA_LABEL[e]} ${pct(s)}`;
       }).filter(Boolean);
-      subtitle = `Top 10 share of each era's appearances: ${parts.join(", ")}`;
+      subtitle = `Top-10 share per era: ${parts.join(", ")}`;
     } else {
       const s = top10Share(rows);
       subtitle = s == null ? "" : `These 10 hold ${pct(s)} of all ${eraName} Age appearances`;

@@ -18,10 +18,13 @@
   --bronze: #b46a39;  /* Rich copper bronze */
   --modern: #4f46e5;  /* Vibrant modern indigo */
   
+  /* Menu accent: hover colour of the chips without a colour of their own */
+  --pow: #ffd23f;
+
   --ink: #1b1d22;
   --muted: #6b7280;
-  --paper: #fafaf7;
-  --panel: #ececea;
+  --paper: #fbf3dc;   /* page background: warm comic-paper yellow */
+  --panel: #ffffff;   /* panels white, so the charts stand out on the coloured page */
   --line: #1b1d22;
   --gap: 1rem;
 }
@@ -34,12 +37,14 @@ body {
   margin: 0;
   padding: 1rem 1.25rem 1.25rem;
   font-family: "Archivo", system-ui, sans-serif;
-  background: var(--paper);
+  /* Coloured page with halftone dots, like printed comics */
+  background-color: var(--paper);
+  background-image: radial-gradient(rgba(27, 29, 34, 0.09) 1px, transparent 1.4px);
+  background-size: 9px 9px;
   color: var(--ink);
-  height: 100vh;
+  min-height: 100vh;   /* fills the window; scrolls instead of cutting the charts when the window is short */
   display: flex;
   flex-direction: column;
-  overflow: hidden;
 }
 
 /* Title + filter bar on the same line */
@@ -60,29 +65,47 @@ body {
 }
 
 .brand-logo {
-  height: 3.4rem;
+  height: 4.2rem;
   width: auto;
   object-fit: contain;
 }
 
 .topbar h1 {
   margin: 0;
-  font-size: 1.9rem;
-  font-weight: 800;
+  font-size: clamp(2.2rem, 2.8vw, 3rem);
+  font-weight: 900;
   letter-spacing: 0.01em;
   line-height: 1.05;
   white-space: nowrap;
 }
 
 /* The years on their own line, just below the title */
+/* Title words in the publisher colours, "vs" in a yellow box */
+.topbar h1 .t-marvel { color: var(--marvel); }
+.topbar h1 .t-dc { color: var(--dc); }
+.topbar h1 .t-vs {
+  display: inline-block;
+  font-size: 0.55em;
+  vertical-align: middle;
+  padding: 0.1em 0.35em;
+  background: var(--pow);
+  border: 2px solid var(--ink);
+  transform: rotate(-6deg);
+}
+
 .topbar h1 .years {
   display: block;
-  font-size: 1.1rem;
+  font-size: 0.45em;
   font-weight: 700;
   color: var(--muted);
 }
 
-/* Filter bar */
+/* ============================================================
+   Filter bar (the menu)
+   The chips also act as the legend of every chart:
+   era and publisher chips carry a colour square,
+   alignment chips carry the marker shapes of the scatter plot.
+   ============================================================ */
 .filters {
   flex: 0 1 auto;
   display: flex;
@@ -91,8 +114,20 @@ body {
   font-size: clamp(9px, calc((100cqi - 15rem)/90), 14px);
   gap: 1.35em;
   padding: 0.6em 1.2em;
-  border: 2px solid var(--line);
+  border: 3px solid var(--line);
   background: #fff;
+  box-shadow: 4px 4px 0 var(--ink);
+}
+
+/* Beside the title (logos + title take room): the four filters on two rows,
+   Era + Publisher / Alignment + Gender, so the bar never runs off the screen */
+@media (min-width: 901px) {
+  .filters {
+    display: grid;
+    grid-template-columns: auto auto;
+    gap: 0.45em 1.6em;
+    font-size: clamp(10px, 0.85vw, 14px);
+  }
 }
 
 .filter-group {
@@ -103,92 +138,100 @@ body {
 }
 
 .filter-label {
-  font-size: 1.13em;
-  font-weight: 700;
-  margin-right: 0.15em;
+  font-size: 1em;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-right: 0.2em;
 }
 
 .chip {
   font: inherit;
   font-weight: 600;
   font-size: 1em;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
   padding: 0.2em 0.6em;
   border: 2px solid var(--line);
   background: #fff;
   color: var(--ink);
   cursor: pointer;
+  transition: background-color 0.12s, color 0.12s, transform 0.12s, box-shadow 0.12s;
 }
 
-.chip:hover[data-value="good"],
-.chip:hover[data-value="neutral"],
-.chip:hover[data-value="bad"],
-.chip:hover[data-value="all"],
-.chip:hover[data-value="female"],
-.chip:hover[data-value="male"],
-.chip:hover[data-value="both"] {
-  background: var(--ink);
-  color: var(--paper);
+/* Colour of each chip (--c) and its light tint for the hover (--c-soft) */
+.chip[data-value="golden"] { --c: var(--golden); --c-soft: color-mix(in srgb, var(--golden) 35%, #fff); }
+.chip[data-value="silver"] { --c: var(--silver); --c-soft: color-mix(in srgb, var(--silver) 40%, #fff); }
+.chip[data-value="bronze"] { --c: var(--bronze); --c-soft: color-mix(in srgb, var(--bronze) 30%, #fff); }
+.chip[data-value="modern"] { --c: var(--modern); --c-soft: color-mix(in srgb, var(--modern) 25%, #fff); }
+.chip[data-value="marvel"] { --c: var(--marvel); --c-soft: color-mix(in srgb, var(--marvel) 25%, #fff); }
+.chip[data-value="dc"]     { --c: var(--dc);     --c-soft: color-mix(in srgb, var(--dc) 25%, #fff); }
+
+/* Colour square in front of the coloured chips ("Both" = half Marvel, half DC) */
+.chip[data-value="golden"]::before,
+.chip[data-value="silver"]::before,
+.chip[data-value="bronze"]::before,
+.chip[data-value="modern"]::before,
+.chip[data-value="marvel"]::before,
+.chip[data-value="dc"]::before,
+.chip[data-value="both"]::before {
+  content: "";
+  width: 0.8em;
+  height: 0.8em;
+  border: 1.5px solid var(--ink);
+  background: var(--c);
+}
+.chip[data-value="both"]::before {
+  background: linear-gradient(90deg, var(--marvel) 50%, var(--dc) 50%);
 }
 
-.chip:hover[data-value="golden"] { 
-  background: var(--golden); 
-  color: var(--ink); 
-}
-.chip:hover[data-value="silver"] { 
-  background: var(--silver);  
-  color: #fff; 
-}
-.chip:hover[data-value="bronze"] { 
-  background: var(--bronze);  
-  color: #fff; 
-}
-.chip:hover[data-value="modern"] { 
-  background: var(--modern);  
-  color: #fff; 
+/* Alignment chips: the marker shapes of the scatter plot (V2) */
+.chip[data-value="good"]::before    { content: "\25B2"; font-size: 0.75em; }
+.chip[data-value="neutral"]::before { content: "\25CF"; font-size: 0.75em; }
+.chip[data-value="bad"]::before     { content: "\25BC"; font-size: 0.75em; }
+
+/* Hover: every chip lights up and pops out a little.
+   Coloured chips take a tint of their own colour, the others the yellow accent. */
+.chip:hover {
+  background: var(--c-soft, var(--pow));
+  color: var(--ink);
+  transform: translate(-1px, -1px);
+  box-shadow: 2px 2px 0 var(--ink);
 }
 
-.chip:hover[data-value="marvel"] { 
-  background: var(--marvel);  
-  color: #fff; 
-}
-.chip:hover[data-value="dc"] { 
-  background: var(--dc);          
-  color: #fff; 
-}
-
+/* Active: black (All, Both, alignment, gender) or the full colour (eras, publishers) */
 .chip.active {
   background: var(--ink);
   color: #fff;
+  font-weight: 800;
+  transform: translate(-1px, -1px);
+  box-shadow: 2px 2px 0 var(--ink);
+}
+.chip.active:hover {
+  background: #33363f;
+  color: #fff;
 }
 
-.chip.active[data-value="golden"] { 
-  background: var(--golden); 
-  color: var(--ink); 
+.chip.active[data-value="golden"] {
+  background: var(--c);
+  color: var(--ink);
 }
-.chip.active[data-value="silver"] { 
-  background: var(--silver);  
-  color: #fff; 
+.chip.active[data-value="silver"],
+.chip.active[data-value="bronze"],
+.chip.active[data-value="modern"],
+.chip.active[data-value="marvel"],
+.chip.active[data-value="dc"] {
+  background: var(--c);
+  color: #fff;
 }
-.chip.active[data-value="bronze"] { 
-  background: var(--bronze);  
-  color: #fff; 
-}
-.chip.active[data-value="modern"] { 
-  background: var(--modern);  
-  color: #fff; 
-}
-
-.chip.active[data-value="marvel"] { 
-  background: var(--marvel);  
-  color: #fff; 
-}
-.chip.active[data-value="dc"] { 
-  background: var(--dc);          
-  color: #fff; 
+/* "Both" active: white border so its square stands out on the black chip */
+.chip.active[data-value="both"]::before {
+  border-color: #fff;
 }
 
 .chip:focus-visible {
-  outline: 3px solid var(--dc);
+  outline: 3px solid var(--pow);
   outline-offset: 2px;
 }
 
@@ -202,7 +245,7 @@ body {
     "v3 v3 v2";
   gap: var(--gap);
   flex: 1;
-  min-height: 0;
+  min-height: 700px;   /* below this the charts are cut: the page scrolls instead */
 }
 
 .v1 { grid-area: v1; }
@@ -214,21 +257,32 @@ body {
   flex-direction: column;
   min-width: 0;
   min-height: 0;
-  padding: 0.9rem 1rem 1rem;
+  padding: 0.7rem 0.8rem 0.8rem;
   background: var(--panel);
-  border: 2px solid var(--line);
+  border: 3px solid var(--line);
+  box-shadow: 4px 4px 0 var(--ink);   /* comic panel */
+}
+
+/* Panel titles in a yellow caption box, like the narration boxes of comics */
+.panel h2 .caption {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  background: var(--pow);
+  border: 2px solid var(--ink);
+  box-shadow: 2px 2px 0 var(--ink);
 }
 
 .panel h2 {
-  margin: 0 0 0.75rem;
-  font-size: 1.05rem;
-  font-weight: 700;
+  margin: 0 0 0.55rem;
+  font-size: clamp(1.15rem, 1.25vw, 1.45rem);
+  font-weight: 800;
+  line-height: 1.15;
 }
 
 .panel-body {
   flex: 1;
   display: grid;
-  gap: 1rem;
+  gap: 0.75rem;
   min-height: 0;
 }
 
@@ -253,6 +307,13 @@ body {
 }
 
 /* Media Queries */
+/* Medium windows: smaller logos so the title and the menu fit side by side */
+@media (max-width: 1150px) {
+  .brand { gap: 0.6rem; }
+  .brand-logo { height: 3.2rem; }
+  .topbar h1 { font-size: 2.1rem; }
+}
+
 @media (max-width: 1120px) {
   .filters,
   .filter-group {
@@ -280,8 +341,22 @@ body {
       "v3";
   }
 
+  .grid {
+    min-height: 0;
+  }
+
   .panel-body.two-col {
     grid-template-columns: 1fr;
+  }
+
+  .panel-body.stack {
+    grid-template-rows: none;
+  }
+
+  /* One chart under the other: each one gets its own height */
+  .panel-body > .idiom,
+  .panel-body > .idiom.drawn {
+    height: 360px;
   }
 
   .topbar {
@@ -292,6 +367,14 @@ body {
   .brand {
     justify-content: center;
     text-align: center;
+  }
+
+  .brand-logo {
+    height: 3rem;
+  }
+
+  .topbar h1 {
+    font-size: 2rem;
   }
 }
 
@@ -351,7 +434,7 @@ body {
   background: #fff;
 }
 
-.view-nav a:hover { background: var(--panel); }
+.view-nav a:hover { background: var(--pow); }
 
 /* ---- Charts ---- */
 .idiom.drawn {
@@ -389,14 +472,14 @@ body {
 }
 
 .chart-title {
-  font-size: 0.85rem;
-  font-weight: 700;
+  font-size: 1rem;
+  font-weight: 800;
   fill: var(--ink);
 }
 
 .axis text {
   font-family: "Archivo", system-ui, sans-serif;
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   fill: var(--muted);
 }
 
@@ -428,13 +511,10 @@ body {
 .panel.v3 h2 {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;     /* the menu goes under the title when the panel is narrow */
+  row-gap: 0.35rem;
 }
 
-.v2-controls select:hover,
-.v3-controls select:hover {
-  background: var(--ink);   
-  color: var(--paper);
-}
 
 .v2-controls,
 .v3-controls {
@@ -442,10 +522,10 @@ body {
   flex-wrap: nowrap;
   white-space: nowrap;
   align-items: center;
-  gap: 0.75rem;
-  margin-left: 1rem;
+  gap: 0.4rem;
+  margin-left: 0.6rem;
   font-weight: 600;
-  font-size: 0.85rem;
+  font-size: 0.95rem;
 }
 
 .v2-controls select,
@@ -457,9 +537,27 @@ body {
   background: #fff;
   color: var(--ink);
   cursor: pointer;
+  transition: background-color 0.12s, transform 0.12s, box-shadow 0.12s;
+}
+
+/* Hover: same yellow accent and pop-out as the filter chips */
+.v2-controls select:hover,
+.v3-controls select:hover {
+  background: var(--pow);
+  color: var(--ink);
+  transform: translate(-1px, -1px);
+  box-shadow: 2px 2px 0 var(--ink);
 }
 
 .v2-controls select:focus-visible,
 .v3-controls select:focus-visible {
-  outline: none; 
+  outline: 3px solid var(--pow);
+  outline-offset: 2px;
 }
+
+/* V3: the Team menu takes the colour of the selected team's publisher */
+.v3-controls select.pub-marvel { background: var(--marvel); color: #fff; }
+.v3-controls select.pub-dc { background: var(--dc); color: #fff; }
+.v3-controls select.pub-marvel:hover,
+.v3-controls select.pub-dc:hover { background: var(--pow); color: var(--ink); }
+.v3-controls select option { background: #fff; color: var(--ink); }
