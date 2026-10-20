@@ -132,7 +132,12 @@
       .attr("fill", MUTED()).text(text);
   }
 
-  const title = (layer, text) => layer.append("text").attr("class", "chart-title").attr("x", 8).attr("y", 20).text(text);
+  // Chart title; an optional extra piece of information (e.g. the character count) follows in small grey, as in V3
+  const title = (layer, text, sub) => {
+    const el = layer.append("text").attr("class", "chart-title").attr("x", 8).attr("y", 20).text(text);
+    if (sub) el.append("tspan").attr("class", "chart-sub").attr("dx", 8).text(sub);
+    return el;
+  };
 
   // Alignment -> marker shape: triangle up (good), circle (neutral), triangle down (bad), diamond (unknown)
   const triangleDown = {
@@ -284,7 +289,7 @@
         .attr("text-anchor", "middle").attr("font-size", 11).attr("fill", MUTED())
         .text(plotH >= 200 ? "appearances (log scale)" : "appearances");
     }
-    title(L.chrome, `Power vs popularity (${num(pts.length)} characters)`);
+    title(L.chrome, "Power vs popularity", `${num(pts.length)} characters`);
     legend.forEach((it) => it.draw(L.chrome, it.x, 39 + it.row * 17));
 
     // Fits per alignment (on the visible characters) and one overall fit (on all characters)
