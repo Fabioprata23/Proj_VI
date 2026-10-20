@@ -548,26 +548,79 @@
     pies.select("path")
       .attr("d", (tm) => d3.arc()({ innerRadius: 0, outerRadius: r, startAngle: 0, endAngle: 2 * Math.PI * (tm.good / tm.size) }));
 
-    // Legend
-    L.legend.selectAll("*").remove();
+    // Legend. The colour bars and their values are kept between updates, so they can transition
+    // when the filters change the maximum (the values count up or down to the new ones).
     const ly = Math.min(H - 22, top(k) + 18);
     const legend = L.legend.attr("font-size", 10).attr("fill", MUTED);
-    legend.append("text").attr("x", 6).attr("y", ly).text("Shared members:");
-    const steps = [...new Set([1, Math.round(maxShared / 2), maxShared])];
-    let x = 92;
-    for (const b of blocks) {
-      steps.forEach((n) => {
-        legend.append("rect").attr("x", x).attr("y", ly - 10).attr("width", 20).attr("height", 13).attr("rx", 2)
-          .attr("fill", fill(b.pub, n));
-        legend.append("text").attr("x", x + 10).attr("y", ly).attr("text-anchor", "middle")
-          .attr("fill", dark(n) ? "#fff" : INK).text(n);
-        x += 22;
+    legend.selectAll(".static").remove();
+    legend.append("text").attr("class", "static").attr("x", 6).attr("y", ly).text("Shared members:");
+    // Notes on the right, one per line (written first: the colour bars take the room left of them)
+    const notes = ["Pie = share of Good characters", "dashed = team size"].map((s, i) =>
+      legend.append("text").attr("class", "static").attr("x", W - m.right).attr("y", ly + i * 15)
+        .attr("text-anchor", "end").text(s));
+    const noteW = d3.max(notes, (n) => n.node().getComputedTextLength());
+    const x0 = 92;
+
+    // One colour bar per publisher, one under the other (Marvel, then DC below),
+    // as wide as the room allows.
+    // Four values are written at their place on the bar: the minimum (1), a third, two thirds and the maximum.
+    const barW = Math.max(50, Math.min(240, W - m.right - noteW - 14 - x0));
+    const steps = [...new Set([0, 1 / 3, 2 / 3, 1].map((f) => Math.round(1 + f * (maxShared - 1))))];
+    const rowY = (b) => ly + blocks.indexOf(b) * 15;
+
+    // Stepped colours: the bar is cut into a few flat bands, from the lightest (1) to the darkest (maximum).
+    // Hard stops (two stops at the same offset) give the sharp edges between the bands.
+    const nBands = Math.min(maxShared, 7);
+    const bandStops = (pub) => d3.range(nBands).flatMap((j) => {
+      const n = nBands > 1 ? 1 + (j / (nBands - 1)) * (maxShared - 1) : 1;
+      const color = fill(pub, n);
+      return [{ offset: j / nBands, color }, { offset: (j + 1) / nBands, color }];
+    });
+    // Each value is written at the centre of the band that carries its colour
+    const bandOf = (n) => (maxShared > 1 ? Math.round(((n - 1) / (maxShared - 1)) * (nBands - 1)) : 0);
+    const barAt = (n) => ((bandOf(n) + 0.5) / nBands) * barW;
+    const bandValue = (n) => (nBands > 1 ? 1 + (bandOf(n) / (nBands - 1)) * (maxShared - 1) : 1);
+    const defs = legend.selectAll("defs").data([0]).join("defs");
+    defs.selectAll("linearGradient").data(blocks, (b) => b.pub)
+      .join((enter) => enter.append("linearGradient").attr("id", (b) => `v3-shared-${b.pub}`))
+      .each(function (b) {
+        d3.select(this).selectAll("stop").data(bandStops(b.pub)).join("stop")
+          .attr("offset", (d) => d.offset).attr("stop-color", (d) => d.color);
       });
-      x += 8;
+
+    const bars = legend.selectAll("rect.shared-bar").data(blocks, (b) => b.pub)
+      .join(
+        (enter) => enter.append("rect").attr("class", "shared-bar").attr("x", x0).attr("rx", 2).attr("height", 13)
+          .attr("y", (b) => rowY(b) - 10).attr("width", barW).attr("opacity", t ? 0 : 1)
+          .attr("fill", (b) => `url(#v3-shared-${b.pub})`),
+        (update) => update,
+        fadeOut(t)
+      );
+    move(bars).attr("opacity", 1).attr("y", (b) => rowY(b) - 10).attr("width", barW);
+
+    const values = blocks.flatMap((b) => steps.map((n, i) =>
+      ({ key: `${b.pub}-${i}`, n, x: x0 + barAt(n), y: rowY(b), anchor: "middle" })));
+    const labels = legend.selectAll("text.shared-value").data(values, (v) => v.key)
+      .join(
+        (enter) => enter.append("text").attr("class", "shared-value")
+          .attr("x", (v) => v.x).attr("y", (v) => v.y).attr("opacity", t ? 0 : 1).text((v) => v.n)
+          .attr("fill", (v) => (dark(bandValue(v.n)) ? "#fff" : INK)).property("_n", (v) => v.n),
+        (update) => update,
+        fadeOut(t)
+      )
+      .attr("text-anchor", (v) => v.anchor);
+    if (t) {
+      labels.transition(t)
+        .attr("opacity", 1).attr("x", (v) => v.x).attr("y", (v) => v.y).attr("fill", (v) => (dark(bandValue(v.n)) ? "#fff" : INK))
+        .tween("text", function (v) {
+          const count = d3.interpolateRound(this._n ?? v.n, v.n);
+          this._n = v.n;
+          return (p) => { this.textContent = count(p); };
+        });
+    } else {
+      labels.attr("opacity", 1).attr("x", (v) => v.x).attr("y", (v) => v.y)
+        .attr("fill", (v) => (dark(bandValue(v.n)) ? "#fff" : INK)).text((v) => v.n).property("_n", (v) => v.n);
     }
-    legend.append("text").attr("x", x + 4).attr("y", ly).text("dashed = team size");
-    legend.append("text").attr("x", 6).attr("y", ly + 15)
-      .text("Pie = share of Good characters");
 
     matrixStore.last = { teams, pos, top, cellW, cellH };
     highlightMatrix(getHighlight());
