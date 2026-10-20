@@ -17,8 +17,8 @@
   const PUBS = ["marvel", "dc"];
   const PUB_LABEL = { marvel: "Marvel", dc: "DC" };
   const PUB_COLOR = { marvel: cssVar("--marvel", "#b8504b"), dc: cssVar("--dc", "#3d6a9e") };
-  // Text written on an era colour: dark on the light colours, white on the dark ones
-  const ERA_TEXT = { golden: "#1b1d22", silver: "#1b1d22", bronze: "#fff", modern: "#fff" };
+  // Era tags: like an active Era chip of the menu (full colour, black border, comic shadow).
+  // The name is white with a small black drop shadow: readable on all four colours.
 
   const WINDOW = 2;     // rolling average over ±2 years = 5 years
   const MIN_DEBUTS = 5; // no value when a publisher has fewer debuts in the 5-year window
@@ -252,19 +252,24 @@
       .attr("x1", (r) => x(r.start)).attr("x2", (r) => x(r.start))
       .attr("opacity", (r) => (r.start > v0 && r.start <= v1 ? 1 : 0));
 
-    // Era names written on their own colour (same colours as the Era chips of the menu)
+    // Era names on their full colour, with a black comic shadow (same look as an active Era chip)
     ui1.eras.selectAll("g.era-tag").data(ranges, (r) => r.era)
       .join((enter) => {
         const g = enter.append("g").attr("class", "era-tag")
           .attr("transform", (r) => `translate(${x((r.start + r.end) / 2)},${m.top - 12})`);
-        const text = g.append("text").attr("text-anchor", "middle").attr("font-size", 11)
-          .attr("font-weight", 700).attr("fill", (r) => ERA_TEXT[r.era]).text((r) => ERA_LABEL[r.era]);
-        // Coloured box behind the name, as wide as the name
-        g.insert("rect", "text").attr("y", -12).attr("height", 16).attr("rx", 3)
-          .attr("fill", (r) => ERA_COLOR[r.era]).attr("stroke", "#1b1d22").attr("stroke-width", 1);
+        // White name over a black copy shifted by 1 px (a small comic drop shadow, like the box)
+        g.append("text").attr("x", 1).attr("y", 1).attr("text-anchor", "middle").attr("font-size", 11)
+          .attr("font-weight", 700).attr("fill", "#1b1d22").text((r) => ERA_LABEL[r.era]);
+        g.append("text").attr("text-anchor", "middle").attr("font-size", 11)
+          .attr("font-weight", 700).attr("fill", "#fff").text((r) => ERA_LABEL[r.era]);
+        // Black shadow shifted by 2 px, then the coloured box, both as wide as the name
+        g.insert("rect", "text").attr("class", "shadow").attr("y", -10).attr("height", 16).attr("fill", "#1b1d22");
+        g.insert("rect", "text").attr("class", "box").attr("y", -12).attr("height", 16)
+          .attr("fill", (r) => ERA_COLOR[r.era]).attr("stroke", "#1b1d22").attr("stroke-width", 1.5);
         g.each(function () {
           const w = this.querySelector("text").getComputedTextLength() + 12;
-          d3.select(this).select("rect").attr("x", -w / 2).attr("width", w);
+          d3.select(this).select("rect.box").attr("x", -w / 2).attr("width", w);
+          d3.select(this).select("rect.shadow").attr("x", -w / 2 + 2).attr("width", w);
         });
         return g;
       })
@@ -272,8 +277,8 @@
       .style("cursor", "pointer")
       .style("pointer-events", (r) => (!zoom || r.era === zoom.era ? null : "none"))
       .on("click", (event, r) => toggleEra(r.era))
-      .on("mouseenter", function () { d3.select(this).select("rect").attr("stroke-width", 2.5); })
-      .on("mouseleave", function () { d3.select(this).select("rect").attr("stroke-width", 1); })
+      .on("mouseenter", function () { d3.select(this).select("rect.box").attr("stroke-width", 2.5); })
+      .on("mouseleave", function () { d3.select(this).select("rect.box").attr("stroke-width", 1.5); })
       .call((g) => g.selectAll("title").data((r) => [r]).join("title")
         .text((r) => (zoom ? "Click to show all eras" : `Click to show only the ${ERA_LABEL[r.era]} Age`)))
       .transition(t)

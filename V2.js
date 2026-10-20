@@ -31,8 +31,8 @@
     bronze: cssVar("--bronze", "#5aa89a"), modern: cssVar("--modern", "#9d84c8"),
   });
   const INK = () => cssVar("--ink", "#1b1d22");
-  // Text written on an era colour: dark on the light colours, white on the dark ones
-  const ERA_TEXT = { golden: "#1b1d22", silver: "#1b1d22", bronze: "#fff", modern: "#fff" };
+  // Era tags: like an active Era chip of the menu (full colour, black border, comic shadow).
+  // The name is white with a small black drop shadow: readable on all four colours.
   const MUTED = () => cssVar("--muted", "#6b7280");
 
   const lc = (v) => (v == null ? "" : String(v).toLowerCase());
@@ -455,15 +455,19 @@
         .attr("stroke", "#9ca3af");
       const labelG = L.base.append("g").style("cursor", "pointer").on("click", () => toggleEra(era));
       labelG.append("title").text("Click to filter by this era");
-      // Era name written on its own colour (same colours as the Era chips of the menu).
+      // Era name on its full colour, with a black comic shadow (same look as an active Era chip).
       // The selected era gets a thicker black border.
       const on = currentEra === era;
-      const boxW = m.left - 14;
+      const boxW = m.left - 16;
+      labelG.append("rect").attr("x", 8).attr("y", top + h / 2 - 8).attr("width", boxW).attr("height", 20)
+        .attr("fill", INK());
       labelG.append("rect").attr("x", 6).attr("y", top + h / 2 - 10).attr("width", boxW).attr("height", 20)
-        .attr("rx", 3).attr("fill", EC[era]).attr("stroke", INK()).attr("stroke-width", on ? 2.5 : 1);
-      labelG.append("text").attr("x", 6 + boxW / 2).attr("y", top + h / 2 + 4).attr("text-anchor", "middle")
+        .attr("fill", EC[era]).attr("stroke", INK()).attr("stroke-width", on ? 2.5 : 1.5);
+      // White name over a black copy shifted by 1 px (a small comic drop shadow, like the box)
+      [[1, INK()], [0, "#fff"]].forEach(([d, fill]) => labelG.append("text")
+        .attr("x", 6 + boxW / 2 + d).attr("y", top + h / 2 + 4 + d).attr("text-anchor", "middle")
         .attr("font-size", 12).attr("font-weight", on ? 800 : 700)
-        .attr("fill", ERA_TEXT[era]).text(ERA_LABEL[era]);
+        .attr("fill", fill).text(ERA_LABEL[era]));
     });
 
     // One entry per era and publisher with characters
