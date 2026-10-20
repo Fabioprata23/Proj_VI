@@ -484,11 +484,6 @@ body {
   fill: var(--muted);
 }
 
-.chart-sub-key {
-  font-weight: 700;
-  fill: var(--ink);
-}
-
 .axis text {
   font-family: "Archivo", system-ui, sans-serif;
   font-size: 0.8rem;

@@ -203,12 +203,8 @@
     const title = L.title.select("text.chart-title").text("");
     const head = title.append("tspan");
     const sub = title.append("tspan").attr("class", "chart-sub").attr("dx", 8);
-    if (graph.sel) {
-      sub.append("tspan").attr("class", "chart-sub-key").text(graph.sel.label);
-      sub.append("tspan").text(` · ${num(graph.selSize)} of ${num(n)} characters`);
-    } else {
-      sub.text(`${num(n)} characters`);
-    }
+    // No selection name here: the outlined bar (or the Team menu) already shows it
+    sub.text(graph.sel ? `${num(graph.selSize)} of ${num(n)} characters` : `${num(n)} characters`);
     // The longest title that fits with the count
     for (const s of ["From origin to alignment, teams and status", "From origin to status", "Character paths"]) {
       head.text(s);
