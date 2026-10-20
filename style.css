@@ -477,6 +477,18 @@ body {
   fill: var(--ink);
 }
 
+/* Extra information after a chart title (e.g. the character count): smaller and grey */
+.chart-sub {
+  font-size: 0.75rem;
+  font-weight: 500;
+  fill: var(--muted);
+}
+
+.chart-sub-key {
+  font-weight: 700;
+  fill: var(--ink);
+}
+
 .axis text {
   font-family: "Archivo", system-ui, sans-serif;
   font-size: 0.8rem;
@@ -526,6 +538,80 @@ body {
   margin-left: 0.6rem;
   font-weight: 600;
   font-size: 0.95rem;
+}
+
+/* V3 instructions: "i" in a circle at the right end of the title line,
+   a box unfolds on hover or keyboard focus */
+.panel.v3 h2 .info {
+  position: relative;
+  margin-left: auto;
+  cursor: help;
+  outline: none;
+}
+
+.info-icon {
+  display: grid;
+  place-items: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  border: 2px solid var(--ink);
+  border-radius: 50%;
+  background: var(--panel);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 0.85rem;
+  font-style: italic;
+  font-weight: 700;
+  line-height: 1;
+  transition: background 0.15s;
+}
+
+.info:hover .info-icon,
+.info:focus-visible .info-icon {
+  background: var(--pow);
+}
+
+.info-pop {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 0.45rem);
+  right: 0;
+  width: 19rem;
+  max-width: 80vw;
+  padding: 0.55rem 0.75rem;
+  background: var(--panel);
+  border: 2px solid var(--ink);
+  box-shadow: 3px 3px 0 var(--ink);
+  font-size: 0.8rem;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--ink);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-4px);
+  transform-origin: top right;
+  transition: opacity 0.15s, transform 0.15s, visibility 0.15s;
+}
+
+.info-pop strong {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-weight: 800;
+}
+
+.info-pop ul {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+
+.info-pop li + li {
+  margin-top: 0.2rem;
+}
+
+.info:hover .info-pop,
+.info:focus .info-pop {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
 }
 
 .v2-controls select,

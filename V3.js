@@ -199,11 +199,21 @@
     const move = (sel) => (t ? sel.transition(t) : sel);
     const m = { top: 50, right: 6, bottom: 8, left: 6 };
 
-    L.title.select("text")
-      .text(graph.sel
-        ? `${graph.sel.label}: ${num(graph.selSize)} of ${num(n)} characters` +
-          (graph.sel.node ? " · click again to clear" : "")
-        : `${num(n)} characters · click a bar${W < 430 ? "" : " to follow its characters"}`);
+    // Title, then the character count in small grey (an extra piece of information, not the title)
+    const title = L.title.select("text.chart-title").text("");
+    const head = title.append("tspan");
+    const sub = title.append("tspan").attr("class", "chart-sub").attr("dx", 8);
+    if (graph.sel) {
+      sub.append("tspan").attr("class", "chart-sub-key").text(graph.sel.label);
+      sub.append("tspan").text(` · ${num(graph.selSize)} of ${num(n)} characters`);
+    } else {
+      sub.text(`${num(n)} characters`);
+    }
+    // The longest title that fits with the count
+    for (const s of ["From origin to alignment, teams and status", "From origin to status", "Character paths"]) {
+      head.text(s);
+      if (title.node().getComputedTextLength() <= W - 16) break;
+    }
 
     // Click on an empty area: clear the clicked node
     svg.on("click", (event) => { if (event.target === svg.node() && pickedNode) pickNode(pickedNode); });
@@ -407,7 +417,7 @@
     const t = makeTransition(fresh);
     const move = (sel) => (t ? sel.transition(t) : sel);
 
-    L.title.select("text").text(W < 380 ? "Shared members, biggest teams" : "Shared members between the biggest teams");
+    L.title.select("text.chart-title").text(W < 380 ? "Shared members, biggest teams" : "Shared members between the biggest teams");
     L.message.selectAll("*").remove();
     matrixStore.last = null;
 
@@ -561,7 +571,7 @@
     }
     legend.append("text").attr("x", x + 4).attr("y", ly).text("dashed = team size");
     legend.append("text").attr("x", 6).attr("y", ly + 15)
-      .text("Pie = share of Good characters · click a team to highlight it");
+      .text("Pie = share of Good characters");
 
     matrixStore.last = { teams, pos, top, cellW, cellH };
     highlightMatrix(getHighlight());
@@ -602,6 +612,20 @@
         pickedNode = "";
         render();
       });
+
+    // "i" button at the right end of the title line: the instructions unfold on hover (or keyboard focus)
+    const info = h2.append("span").attr("class", "info").attr("tabindex", 0)
+      .attr("role", "button").attr("aria-label", "How to use these charts");
+    info.append("span").attr("class", "info-icon").attr("aria-hidden", "true").text("i");
+    const tips = info.append("span").attr("class", "info-pop").attr("role", "tooltip");
+    tips.append("strong").text("How to use");
+    tips.append("ul").selectAll("li").data([
+      "Click a bar of the flow diagram to follow its characters. Click it again, or an empty area, to clear.",
+      "Click a team in the matrix (cell or name) to highlight it in both charts. Click again to clear.",
+      "Or pick a team in the Team menu.",
+      "Hover a ribbon, bar or cell for details.",
+      "Hover a character in the other views to see its path here."
+    ]).join("li").text((d) => d);
   }
 
   // A <select> is as wide as its longest option. Here: as wide as the chosen one,
