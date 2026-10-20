@@ -529,10 +529,12 @@
     }
     emphasize(-1, -1);
 
-    // Pie next to each row name: share of Good characters in the team (grey, like the Sankey bars)
+    // Pie next to each row name: share of Good characters in the team (grey, like the Sankey bars).
+    // Only with the Alignment filter on All: with one alignment kept, the pies would all be full or empty.
+    const showPies = filters.alignment === "all";
     const r = Math.min(5, cellH * 0.28);
     const pieAt = (tm, i) => `translate(${m.left - 8},${top(i) + cellH / 2})`;
-    const pies = L.pies.selectAll("g").data(teams, (tm) => tm.name)
+    const pies = L.pies.selectAll("g").data(showPies ? teams : [], (tm) => tm.name)
       .join(
         (enter) => {
           const g = enter.append("g").attr("transform", pieAt).attr("opacity", t ? 0 : 1);
@@ -555,7 +557,7 @@
     legend.selectAll(".static").remove();
     legend.append("text").attr("class", "static").attr("x", 6).attr("y", ly).text("Shared members:");
     // Notes on the right, one per line (written first: the colour bars take the room left of them)
-    const notes = ["Pie = share of Good characters", "dashed = team size"].map((s, i) =>
+    const notes = [showPies && "Pie = share of Good characters", "dashed = team size"].filter(Boolean).map((s, i) =>
       legend.append("text").attr("class", "static").attr("x", W - m.right).attr("y", ly + i * 15)
         .attr("text-anchor", "end").text(s));
     const noteW = d3.max(notes, (n) => n.node().getComputedTextLength());
