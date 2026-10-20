@@ -1,46 +1,41 @@
 // V2 · Power vs popularity
-// Idiom 3: scatter plot of appearances (log scale) against a selected power stat, with a fit per alignment.
-// Idiom 4: range plot of the same stat by era and publisher.
-// Uses from script.js: registerView, applyFilters, showTooltip, hideTooltip (and d3).
-// Layout and colors come from style.css; this file only draws inside #idiom-3 and #idiom-4.
-// When a filter or the stat changes, the charts update with the same transitions as V1 (750 ms, cubic in-out):
-// new marks grow in, marks that stay slide to their new place, marks that leave shrink and fade out.
+//   Idiom 3: scatter plot of appearances (log scale) against a power stat, with a fit per alignment.
+//   Idiom 4: range plot of the same stat by era and publisher.
+// The "Power stat" menu next to the panel title drives both charts.
+// Uses from script.js: registerView, applyFilters, showTooltip, hideTooltip, setHighlight, onHighlight, getHighlight.
 (function () {
   // ---------- Constants ----------
   const STATS = [
     ["total_power", "Total power"], ["intelligence", "Intelligence"], ["strength", "Strength"],
     ["speed", "Speed"], ["durability", "Durability"], ["power", "Power"], ["combat", "Combat"],
   ];
-  const STAT_KEY = "v2-stat";
+  const STAT_KEY = "v2-stat"; // localStorage key of the chosen stat
   const ERAS = ["golden", "silver", "bronze", "modern"];
   const ERA_LABEL = { golden: "Golden", silver: "Silver", bronze: "Bronze", modern: "Modern" };
   const PUBS = ["marvel", "dc"];
   const PUB_LABEL = { marvel: "Marvel", dc: "DC" };
   const ALIGNMENTS = ["good", "neutral", "bad"];
   const ALIGN_LABEL = { good: "Good", neutral: "Neutral", bad: "Bad", unknown: "Unknown" };
-  const GAP_COLOR = "#e08a00";
-  const MIN_FIT = 6;      // fewest characters needed to draw a fit for an alignment
-  const DURATION = 750;   // length of every transition, in milliseconds (the same as V1)
+  const GAP_COLOR = "#e08a00"; // hover line between a point and the overall fit
+  const MIN_FIT = 6;           // fewest characters needed to draw the fit of an alignment
+  const MIN_SPREAD = 4;        // fewest characters needed for a bar + median in the range plot
+  const DURATION = 750;
 
-  // Colors come from the CSS variables, so every chart follows the style sheet
+  // Colours read from the CSS variables
   const cssVar = (name, fallback) =>
     getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
   const pubColor = () => ({ marvel: cssVar("--marvel", "#b8504b"), dc: cssVar("--dc", "#3d6a9e") });
   const eraColor = () => ({
-    golden: cssVar("--golden", "#dcb05a"), silver: cssVar("--silver", "#94b866"),
-    bronze: cssVar("--bronze", "#5aa89a"), modern: cssVar("--modern", "#9d84c8"),
+    golden: cssVar("--golden", "#dcb05a"), silver: cssVar("--silver", "#94a3b8"),
+    bronze: cssVar("--bronze", "#b46a39"), modern: cssVar("--modern", "#4f46e5"),
   });
   const INK = () => cssVar("--ink", "#1b1d22");
-  // Era tags: like an active Era chip of the menu (full colour, black border, comic shadow).
-  // The name is white with a small black drop shadow: readable on all four colours.
   const MUTED = () => cssVar("--muted", "#6b7280");
 
   const lc = (v) => (v == null ? "" : String(v).toLowerCase());
   const shortName = (n) => String(n).replace(/\s*\(.*\)\s*$/, "");
   const num = d3.format(",");
   const signed = d3.format("+.2f");
-
-  
 
   // ---------- State ----------
   let data = null;
@@ -49,30 +44,31 @@
   try {
     const saved = localStorage.getItem(STAT_KEY);
     if (STATS.some(([k]) => k === saved)) stat = saved;
-  } catch (e) { /* ignore */ }
+  } catch (e) { /* storage blocked: keep the default */ }
   const statLabel = () => STATS.find(([k]) => k === stat)[1];
 
-  // ---------- Stat selector (above the idioms, drives both charts) ----------
-  const panel = document.querySelector("#idiom-3").closest(".panel");
+  const scatterStore = {}, rangeStore = {};
+
+  // ---------- "Power stat" menu, next to the panel title ----------
   const controls = document.createElement("span");
   controls.className = "v2-controls";
   controls.innerHTML = `
     <label for="v2-stat">Power stat</label>
     <select id="v2-stat" title="Changes both charts">${STATS.map(([k, l]) => `<option value="${k}">${l}</option>`).join("")}</select>`;
-  panel.querySelector("h2").appendChild(controls);
+  document.querySelector("#idiom-3").closest(".panel").querySelector("h2").appendChild(controls);
 
   const select = controls.querySelector("select");
   select.value = stat;
   select.addEventListener("change", () => {
     stat = select.value;
-    try { localStorage.setItem(STAT_KEY, stat); } catch (e) { /* ignore */ }
+    try { localStorage.setItem(STAT_KEY, stat); } catch (e) { /* storage blocked: not remembered */ }
     render();
   });
 
   // ---------- Shared helpers ----------
-  // The SVG is kept between updates so the marks can transition. It is only rebuilt when the box changes size.
+  // The SVG is kept between updates so the marks can transition; it is rebuilt only when the box changes size
   function getSvg(id, store) {
-    const box = d3.select(id).classed("drawn", true).classed("shot", false); // not a sketch image any more
+    const box = d3.select(id).classed("drawn", true).classed("shot", false);
     const node = box.node();
     const W = Math.max(240, node.clientWidth || 0);
     const H = Math.max(120, node.clientHeight || 0);
@@ -86,20 +82,19 @@
     return { svg, W, H, fresh: true };
   }
 
-  // Groups stacked in a fixed order (the order of the names)
+  // Layers (<g>) stacked in the order of the names
   function getLayers(svg, store, names) {
     names.forEach((n) => { if (!store.layers[n]) store.layers[n] = svg.append("g").attr("class", `layer-${n}`); });
     return store.layers;
   }
 
-  // One transition shared by everything that moves in this update (none on the first draw or after a resize)
+  // One transition for everything that moves in this update (none on the first draw or after a resize)
   const makeTransition = (fresh) => (fresh ? null : d3.transition().duration(DURATION).ease(d3.easeCubicInOut));
 
-  // Data join in V1's style: a new mark grows (or fades) in, a mark that stays slides to its new place,
-  // a mark that leaves shrinks and fades out. Options:
-  //   setup(sel)  fixed attributes (colors, shapes)      place(sel)  final position and size
+  // Data join with enter / update / exit transitions. Options:
+  //   setup(sel)  fixed attributes (colours, shapes)   place(sel)  final position and size
   //   start(sel)  where a new mark begins (default: its final place)
-  //   leave(tr)   what a leaving mark does besides fading out      extra(tr)  anything else to animate
+  //   leave(tr)   what a leaving mark does besides fading out   extra(tr)  anything else to animate
   function joinMarks(layer, tag, cls, rows, key, t, opts) {
     const { setup = () => {}, place, start = place, leave = () => {}, extra = () => {}, opacity = 1 } = opts;
     const merged = layer.selectAll(`${tag}.${cls}`).data(rows, key).join(
@@ -132,14 +127,15 @@
       .attr("fill", MUTED()).text(text);
   }
 
-  // Chart title; an optional extra piece of information (e.g. the character count) follows in small grey, as in V3
+  // Chart title, optionally followed by a small grey note (e.g. the character count), as in V3
   const title = (layer, text, sub) => {
     const el = layer.append("text").attr("class", "chart-title").attr("x", 8).attr("y", 20).text(text);
     if (sub) el.append("tspan").attr("class", "chart-sub").attr("dx", 8).text(sub);
     return el;
   };
 
-  // Alignment -> marker shape: triangle up (good), circle (neutral), triangle down (bad), diamond (unknown)
+  // Marker shape per alignment: triangle up (good), circle (neutral), triangle down (bad), diamond (unknown).
+  // The same shapes are shown in the Alignment chips of the menu.
   const triangleDown = {
     draw(context, size) {
       const y = Math.sqrt(size / (Math.sqrt(3) * 3));
@@ -153,8 +149,15 @@
   const alignKey = (d) => (ALIGNMENTS.includes(lc(d.alignment)) ? lc(d.alignment) : "unknown");
   const symbolPath = (key, size) => d3.symbol().type(SHAPE[key]).size(size)();
 
-  // ---------- Linear fit (ordinary least squares) with a 95% interval for the mean ----------
-  // t value for 95% (two-sided) from the normal value, accurate enough for 3 or more degrees of freedom
+  // Era filter from inside a chart: goes through the filter bar so every view stays in sync
+  function toggleEra(era) {
+    const target = era === lc(filters.era) ? "all" : era;
+    const chip = document.querySelector(`.filter-group[data-filter="era"] .chip[data-value="${target}"]`);
+    if (chip) chip.click();
+  }
+
+  // ---------- Linear fit (least squares) with a 95% interval for the mean ----------
+  // t value for 95% (two-sided), from the normal value; accurate enough from 3 degrees of freedom
   function tCritical(df) {
     const z = 1.96;
     return z + (z ** 3 + z) / (4 * df) + (5 * z ** 5 + 16 * z ** 3 + 3 * z) / (96 * df * df);
@@ -173,33 +176,19 @@
     return { n, predict: (x) => a + b * x, halfWidth: (x) => t * s * Math.sqrt(1 / n + (x - mx) ** 2 / sxx) };
   }
 
-  // ---------- Rendering ----------
-  const scatterStore = {}, rangeStore = {};
-
-  function render() {
-    if (!data || !filters) return;
-    const hasStat = (d) => typeof d[stat] === "number" && !Number.isNaN(d[stat]);
-    const all = data.characters.filter(hasStat);   // every character with power stats
-    const rows = applyFilters(all, filters);       // the ones passing the era, publisher, alignment and gender filters
-    drawScatter(all, rows);
-    drawRanges(all, rows);
-  }
-
-  // ---------- Scatter legend (wraps to the chart width) ----------
-  function scatterLegendItems(PC, basicOnly) {
+  // ---------- Idiom 3: scatter plot ----------
+  // Legend items. Publisher colours and alignment shapes are explained by the menu chips,
+  // so only the unknown alignment and the fit lines are listed here.
+  function scatterLegendItems(basicOnly) {
     const w = (label, extra) => extra + label.length * 6.2 + 12;
-    const items = [];
-    // No Marvel / DC entries: the publisher chips of the filter bar give the colours
-    // No Good / Neutral / Bad entries: the Alignment chips of the menu show the same shapes (▲ ● ▼)
-    // Characters with no alignment in the data: hollow diamond (see SHAPE.unknown)
-    items.push({
+    const items = [{
       width: w(ALIGN_LABEL.unknown, 14),
       draw: (g, x, y) => {
         g.append("path").attr("d", symbolPath("unknown", 60)).attr("fill", "#fff")
           .attr("stroke", MUTED()).attr("stroke-width", 1.5).attr("transform", `translate(${x + 5},${y - 4})`);
         g.append("text").attr("x", x + 14).attr("y", y).attr("font-size", 11).attr("fill", INK()).text(ALIGN_LABEL.unknown);
       },
-    });
+    }];
     if (basicOnly) return items;
     items.push({
       width: w("fit (95% interval)", 30),
@@ -222,10 +211,10 @@
     return items;
   }
 
-  // Row index and x of every legend item for a given width
-  function layoutLegend(W, PC, basicOnly) {
+  // Row and x of every legend item, wrapping to the chart width
+  function layoutLegend(W, basicOnly) {
     let x = 8, row = 0;
-    return scatterLegendItems(PC, basicOnly).map((it) => {
+    return scatterLegendItems(basicOnly).map((it) => {
       if (x > 8 && x + it.width > W - 6) { row += 1; x = 8; }
       const placed = { ...it, x, row };
       x += it.width + 6;
@@ -233,7 +222,6 @@
     });
   }
 
-  // ---------- Idiom 3: appearances (log scale) vs the selected stat ----------
   function drawScatter(all, rows) {
     const { svg, W, H, fresh } = getSvg("#idiom-3", scatterStore);
     const L = getLayers(svg, scatterStore, ["grid", "fits", "points", "gap", "labels", "focus", "axes", "chrome"]);
@@ -242,8 +230,8 @@
     L.gap.selectAll("*").remove();
 
     const PC = pubColor();
-    const compact = H < 300;                                    // small box: fewer legend items
-    const legend = H < 210 ? [] : layoutLegend(W, PC, compact); // very small box: no legend
+    const compact = H < 300;                               // small box: fewer legend items
+    const legend = H < 210 ? [] : layoutLegend(W, compact); // very small box: no legend
     const legendRows = legend.length ? d3.max(legend, (it) => it.row) + 1 : 0;
     const m = { top: 32 + legendRows * 17 + 6, right: 52, bottom: compact ? 38 : 40, left: 62 };
     const plotH = H - m.top - m.bottom;
@@ -260,7 +248,7 @@
     const t = makeTransition(fresh);
     const move = (sel) => (t ? sel.transition(t) : sel);
 
-    // Fixed scales (from all characters) so points do not jump when filters change
+    // Scales from all characters, so the points do not jump when the filters change
     const x = d3.scaleLinear().domain([0, d3.max(allPts, (d) => d[stat])]).nice().range([m.left, W - m.right]);
     const yMax = d3.max(allPts, (d) => d.appearances);
     const y = d3.scaleLog().domain([1, yMax * 1.25]).range([H - m.bottom, m.top]);
@@ -281,7 +269,7 @@
     move(xAxisG).call(d3.axisBottom(x).ticks(compact ? 5 : 6));
     yAxisG.call(d3.axisLeft(y).tickValues(logTicks).tickFormat(num));
 
-    // Title, legend and axis labels
+    // Axis titles, chart title and legend
     L.chrome.append("text").attr("x", W - m.right).attr("y", H - 6).attr("text-anchor", "end")
       .attr("font-size", 11).attr("fill", MUTED()).text(statLabel());
     if (plotH >= 110) {
@@ -292,7 +280,7 @@
     title(L.chrome, "Power vs popularity", `${num(pts.length)} characters`);
     legend.forEach((it) => it.draw(L.chrome, it.x, 39 + it.row * 17));
 
-    // Fits per alignment (on the visible characters) and one overall fit (on all characters)
+    // One fit per alignment (on the visible characters) and one overall fit (on all characters)
     const toXY = (d) => ({ x: d[stat], y: Math.log10(d.appearances) });
     const overall = fitLine(allPts.map(toXY), 3);
     const dash = { good: null, neutral: "5 3", bad: "1.5 3" };
@@ -311,7 +299,8 @@
       const fit = fitLine(group.map(toXY), MIN_FIT);
       const [x0, x1] = d3.extent(group, (d) => d[stat]);
       if (!fit || x1 === x0) {
-        move(g).attr("opacity", 0);                     // not enough characters: the fit fades out
+        // Not enough characters: the fit fades out
+        move(g).attr("opacity", 0);
         g.property("shown", false);
         return;
       }
@@ -323,17 +312,12 @@
       const lineD = d3.line().x((s) => x(s.xv)).y((s) => clampY(s.f))(samples);
       const end = samples[samples.length - 1];
       const tagX = x(end.xv) + 5, tagY = clampY(end.f) + 4;
-      // A fit that was hidden is put in place first, then fades in; a visible one changes shape smoothly
+      // A visible fit changes shape smoothly; a hidden one is put in place first, then fades in
       const animate = t && g.property("shown");
-      const target = (sel) => sel;
-      const bandSel = g.select(".band"), lineSel = g.select(".line"), tagSel = g.select(".tag");
-      if (animate) {
-        bandSel.transition(t).attr("d", bandD);
-        lineSel.transition(t).attr("d", lineD);
-        tagSel.transition(t).attr("x", tagX).attr("y", tagY);
-      } else {
-        target(bandSel).attr("d", bandD); target(lineSel).attr("d", lineD); target(tagSel).attr("x", tagX).attr("y", tagY);
-      }
+      const shape = (sel) => (animate ? sel.transition(t) : sel);
+      shape(g.select(".band")).attr("d", bandD);
+      shape(g.select(".line")).attr("d", lineD);
+      shape(g.select(".tag")).attr("x", tagX).attr("y", tagY);
       move(g).attr("opacity", 1);
       g.property("shown", true);
     });
@@ -348,7 +332,7 @@
       move(overallPath).attr("d", d3.line().x((v) => x(v)).y((v) => clampY(overall.predict(v)))([x0, x1]));
     }
 
-    // Points: color = publisher, shape = alignment. They fade in and out and move when the stat changes.
+    // Points: colour = publisher, shape = alignment (unknown = hollow diamond)
     const gapOf = (d) => (overall ? Math.log10(d.appearances) - overall.predict(d[stat]) : null);
     const pointTip = (d) => {
       const g = gapOf(d);
@@ -374,6 +358,7 @@
       }),
     });
 
+    // Hover a point: dashed line to the overall fit, tooltip, and highlight in the other views
     dots
       .on("mouseenter", (event, d) => {
         L.gap.selectAll("*").remove();
@@ -391,7 +376,7 @@
       .on("mouseleave", () => { L.gap.selectAll("*").remove(); hideTooltip(); setHighlight(null); });
     L.gap.style("pointer-events", "none");
 
-    // Names of the most appearing characters (moved down when two labels would overlap); keyed by character
+    // Names of the 4 most appearing characters, moved down when two would overlap
     const placed = [];
     const labels = [...pts].sort((a, b) => b.appearances - a.appearances).slice(0, plotH >= 140 ? 4 : 0).map((d) => {
       const text = shortName(d.name);
@@ -415,7 +400,7 @@
     highlightScatter(getHighlight());
   }
 
-  // ---------- Idiom 4: distribution of the selected stat by era and publisher ----------
+  // ---------- Idiom 4: range plot by era and publisher ----------
   function drawRanges(all, rows) {
     const { svg, W, H, fresh } = getSvg("#idiom-4", rangeStore);
     const L = getLayers(svg, rangeStore, ["base", "marks", "focus", "hover", "axes", "chrome"]);
@@ -437,6 +422,7 @@
     const t = makeTransition(fresh);
     const move = (sel) => (t ? sel.transition(t) : sel);
 
+    // One band per era, split in one lane per publisher
     const x = d3.scaleLinear().domain([0, d3.max(all, (d) => d[stat])]).nice().range([m.left, W - m.right]);
     const band = d3.scaleBand().domain(ERAS).range([m.top, H - m.bottom]).paddingInner(0.1);
     const lane = d3.scaleBand().domain(PUBS).range([0, band.bandwidth()]).paddingInner(0.12).paddingOuter(0.08);
@@ -446,13 +432,14 @@
     axisG.attr("transform", `translate(0,${H - m.bottom})`);
     move(axisG).call(d3.axisBottom(x).ticks(6));
 
+    // Title and x axis title (no reading key: the tooltip of each lane gives the values)
     title(L.chrome, `${statLabel()} by era and publisher`);
     L.chrome.append("text").attr("x", W - m.right).attr("y", H - 6).attr("text-anchor", "end")
       .attr("font-size", 11).attr("fill", MUTED()).text(statLabel());
-    // No Marvel / DC labels: the publisher chips of the filter bar give the colours
-    // No reading key under the title (bar / median / dots): the tooltip of each row explains the values
 
-    // Era rows: baseline and label (click the label to filter every view on this era; click again to clear)
+    // Era rows: baseline and era tag (click = filter every view on this era; click again = all eras).
+    // The tag looks like an active Era chip: full colour, black border and comic shadow;
+    // white name with a 1 px black shadow, readable on all four colours. Selected era: thicker border.
     const currentEra = lc(filters.era);
     ERAS.forEach((era) => {
       const top = band(era), h = band.bandwidth();
@@ -460,22 +447,19 @@
         .attr("stroke", "#9ca3af");
       const labelG = L.base.append("g").style("cursor", "pointer").on("click", () => toggleEra(era));
       labelG.append("title").text("Click to filter by this era");
-      // Era name on its full colour, with a black comic shadow (same look as an active Era chip).
-      // The selected era gets a thicker black border.
       const on = currentEra === era;
       const boxW = m.left - 16;
       labelG.append("rect").attr("x", 8).attr("y", top + h / 2 - 8).attr("width", boxW).attr("height", 20)
         .attr("fill", INK());
       labelG.append("rect").attr("x", 6).attr("y", top + h / 2 - 10).attr("width", boxW).attr("height", 20)
         .attr("fill", EC[era]).attr("stroke", INK()).attr("stroke-width", on ? 2.5 : 1.5);
-      // White name over a black copy shifted by 1 px (a small comic drop shadow, like the box)
       [[1, INK()], [0, "#fff"]].forEach(([d, fill]) => labelG.append("text")
         .attr("x", 6 + boxW / 2 + d).attr("y", top + h / 2 + 4 + d).attr("text-anchor", "middle")
         .attr("font-size", 12).attr("font-weight", on ? 800 : 700)
         .attr("fill", fill).text(ERA_LABEL[era]));
     });
 
-    // One entry per era and publisher with characters
+    // One group per era and publisher that has characters
     const byGroup = d3.group(rows, (d) => lc(d.era), (d) => lc(d.publisher));
     const groups = [];
     ERAS.forEach((era) => PUBS.forEach((pub) => {
@@ -490,11 +474,11 @@
       });
     }));
 
-    // Marks, in V1's style: they grow out of the median, slide when the stat changes, and shrink back when they leave
+    // Marks grow out of the median, slide when the stat changes, and shrink back into it when they leave.
+    // Groups with MIN_SPREAD+ characters: whisker, middle-50% bar, lowest/highest dots and median.
+    // Smaller groups: one dot per character (a median of 2 values is not a real character).
     const med = (d) => x(d.med);
-    // Groups with 4+ characters: whisker, middle-50% bar, lowest/highest dots and median.
-    // Groups with fewer than 4: only one dot per character (a median of 2 values is not a real character).
-    const big = groups.filter((d) => d.n >= 4);
+    const big = groups.filter((d) => d.n >= MIN_SPREAD);
     joinMarks(L.marks, "line", "whisker", big, (d) => d.key, t, {
       setup: (sel) => sel.attr("stroke", (d) => d.color).attr("stroke-opacity", 0.45).attr("stroke-width", 1.5),
       place: (sel) => sel.attr("x1", (d) => x(d.lo)).attr("x2", (d) => x(d.hi)).attr("y1", (d) => d.cy).attr("y2", (d) => d.cy),
@@ -502,7 +486,7 @@
       leave: (tr) => tr.attr("x1", med).attr("x2", med),
     });
 
-    joinMarks(L.marks, "rect", "iqr", groups.filter((d) => d.n >= 4), (d) => d.key, t, {
+    joinMarks(L.marks, "rect", "iqr", big, (d) => d.key, t, {
       setup: (sel) => sel.attr("fill", (d) => d.color).attr("fill-opacity", 0.4)
         .attr("y", (d) => d.cy - d.barH / 2).attr("height", (d) => d.barH).attr("rx", (d) => d.barH / 2),
       place: (sel) => sel.attr("x", (d) => x(d.q1)).attr("y", (d) => d.cy - d.barH / 2)
@@ -511,13 +495,13 @@
       leave: (tr) => tr.attr("x", med).attr("width", 0),
     });
 
-    // Groups with fewer than 4 characters: show each character as a dot
     const dotOpts = {
       place: (sel) => sel.attr("cx", (d) => x(d.v)).attr("cy", (d) => d.cy),
       start: (sel) => sel.attr("cx", med).attr("cy", (d) => d.cy),
       leave: (tr) => tr.attr("cx", med),
     };
-    const few = groups.filter((d) => d.n < 4).flatMap((d) => d.values.map((v, i) => ({ key: `${d.key}-v${i}`, v, med: d.med, cy: d.cy, color: d.color })));
+    const few = groups.filter((d) => d.n < MIN_SPREAD)
+      .flatMap((d) => d.values.map((v, i) => ({ key: `${d.key}-v${i}`, v, med: d.med, cy: d.cy, color: d.color })));
     joinMarks(L.marks, "circle", "few", few, (d) => d.key, t, {
       ...dotOpts, setup: (sel) => sel.attr("r", 5).attr("fill", (d) => d.color).attr("fill-opacity", 0.85)
         .attr("stroke", "#fff").attr("stroke-width", 1.2),
@@ -536,7 +520,7 @@
       place: (sel) => sel.attr("cx", (d) => x(d.med)).attr("cy", (d) => d.cy),
     });
 
-    // The "n =" counts count up or down (like the peak labels in V1)
+    // "n =" counts, counting up or down to the new value
     joinMarks(L.marks, "text", "count", groups, (d) => d.key, t, {
       setup: (sel) => sel.attr("font-size", 10).attr("fill", MUTED()).text((d) => `n = ${d.n}`),
       place: (sel) => sel.attr("x", W - m.right + 8).attr("y", (d) => d.cy + 4),
@@ -547,13 +531,13 @@
       }),
     });
 
-    // Hover over a whole lane
+    // Tooltip over a whole lane
     L.hover.selectAll("rect").data(groups, (d) => d.key).join("rect")
       .attr("x", m.left).attr("y", (d) => d.cy - d.laneH / 2).attr("width", W - m.left - m.right).attr("height", (d) => d.laneH)
       .attr("fill", "transparent")
       .on("mousemove", (event, d) => showTooltip(
         `<strong>${PUB_LABEL[d.pub]} · ${ERA_LABEL[d.era]}</strong><br>n = ${d.n} characters` +
-        (d.n < 4
+        (d.n < MIN_SPREAD
           ? `<br>Too few for a median: ${statLabel().toLowerCase()} = ${d.values.join(", ")}`
           : `<br>Median ${statLabel().toLowerCase()}: ${d3.format(".0f")(d.med)}` +
             `<br>Middle 50%: ${d3.format(".0f")(d.q1)} to ${d3.format(".0f")(d.q3)}` +
@@ -564,9 +548,9 @@
     highlightRanges(getHighlight());
   }
 
-  // ---------- Shared highlight (script.js): show the hovered character in both V2 charts ----------
-  // Scatter: a ring around its point and its name, the other points fade.
-  // If it has no power stats, a short note says so instead of showing nothing.
+  // ---------- Character hovered in another view ----------
+  // Scatter: ring around its point and its name; the other points fade.
+  // Without power stats: a short note says so.
   function highlightScatter(id) {
     const s = scatterStore.last;
     if (!s) return;
@@ -585,7 +569,7 @@
     const cx = s.x(d[stat]), cy = s.y(d.appearances);
     layer.append("circle").attr("cx", cx).attr("cy", cy).attr("r", 10)
       .attr("fill", "none").attr("stroke", INK()).attr("stroke-width", 2.5);
-    // Already one of the named characters: its name is there, do not write it twice
+    // Its name is already written (one of the 4 named characters): do not write it twice
     if (!s.L.labels.selectAll("text.name").filter((p) => p.id === id).empty()) return;
     const right = cx < s.W - s.m.right - 90;
     layer.append("text").attr("x", right ? cx + 14 : cx - 14).attr("y", cy - 10)
@@ -594,7 +578,7 @@
       .text(shortName(d.name));
   }
 
-  // Range plot: a tick at the character's value, in its era and publisher lane.
+  // Range plot: a black tick at the character's value, in its era and publisher lane
   function highlightRanges(id) {
     const s = rangeStore.last;
     if (!s) return;
@@ -616,14 +600,17 @@
 
   onHighlight((id) => { highlightScatter(id); highlightRanges(id); });
 
-  // ---------- Era filter from inside a chart (uses the filter bar, so every view stays in sync) ----------
-  function toggleEra(era) {
-    const target = era === lc(filters.era) ? "all" : era;
-    const chip = document.querySelector(`.filter-group[data-filter="era"] .chip[data-value="${target}"]`);
-    if (chip) chip.click();
+  // ---------- Rendering ----------
+  function render() {
+    if (!data || !filters) return;
+    const hasStat = (d) => typeof d[stat] === "number" && !Number.isNaN(d[stat]);
+    const all = data.characters.filter(hasStat); // every character with this stat (fixed scales)
+    const rows = applyFilters(all, filters);     // the ones that pass the filters (drawn)
+    drawScatter(all, rows);
+    drawRanges(all, rows);
   }
 
-  // script.js calls this with (data, filters) on load, on every filter change and when the window resizes
+  // script.js calls this on load, on every filter change and on resize
   registerView((d, f) => {
     data = d;
     filters = f;
